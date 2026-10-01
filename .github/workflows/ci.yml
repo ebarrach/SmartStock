@@ -1,0 +1,68 @@
+name: CI - Qualité & Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scala-quality-and-tests:
+    name: Scala - Quality & Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: code/smartstock-agent
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "sbt"
+
+      - name: Set up sbt
+        uses: sbt/setup-sbt@v1
+
+      - name: Compile Scala
+        run: sbt compile
+
+      - name: Check Scala formatting
+        run: sbt scalafmtCheckAll
+
+      - name: Run Scala tests
+        run: sbt test
+
+  mobile-quality-and-tests:
+    name: React Native - Quality & Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: code/mobile-app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test -- --runInBand

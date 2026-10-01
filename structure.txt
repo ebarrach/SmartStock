@@ -1,0 +1,88 @@
+Structure du projet :
+
+SmartStock/
+    .github/
+        workflows/
+            ci.yml
+            docs.yml
+            qodana_code_quality.yml
+    .gitignore
+    .junie/
+        plans/
+    CONTRIBUTING.md
+    LICENSE
+    README.md
+    code/
+        mobile-app/
+            __tests__/
+            assets/
+            package.json
+            src/
+                components/
+                config/
+                hooks/
+                models/
+                navigation/
+                screens/
+                services/
+                    api/
+                    bluetooth/
+                    nfc/
+                utils/
+            tsconfig.json
+        shared/
+            api/
+                openapi.yaml
+            models/
+        smartstock-agent/
+            build.sbt
+            project/
+            src/
+                main/
+                    resources/
+                        application.conf
+                    scala/
+                        smartstock/
+                            Main.scala
+                            actors/
+                            agent/
+                            communication/
+                            domain/
+                            services/
+                test/
+                    scala/
+    doc/
+        ProgrammerGuide/
+            PDF/
+                ProgrammerGuide.pdf
+                exemple.txt
+            SourceCode/
+                exemple.txt
+        UserGuide/
+            PDF/
+                UserGuide.pdf
+                exemple.txt
+            SourceCode/
+                exemple.txt
+    legal/
+        exemple.txt
+    method/
+        analysis/
+            Charter/
+                2025-00-00 – Title - Purpose.txt
+            Meeting/
+                2025-00-00 – Title - Purpose.txt
+            Step Charter/
+                2025-00-00 – Title - Purpose.txt
+        design/
+            2025-00-00 – Title - Purpose.txt
+        implementation/
+            2025-00-00 – Title - Purpose.txt
+            StructureCode.class
+            StructureCode.java
+    planning/
+        AgendaADE.url
+        gantt - Esteban BARRACHO.xlsx
+        gantt - Surname Name.xlsx
+    qodana.yaml
+    structure.txt

@@ -1,0 +1,21 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Java / JVM
+*.class
+
+# Scala / sbt
+target/
+.bsp/
+.metals/
+
+# Node / React Native
+node_modules/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db

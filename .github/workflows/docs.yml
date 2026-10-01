@@ -1,0 +1,26 @@
+name: Docs - Publier PDFs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lister le contenu de doc/
+        run: |
+          echo "Contenu de doc/ :"
+          ls -R doc
+
+      - name: Upload UserGuide & ProgrammerGuide PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: guides-pdf
+          path: |
+            doc/UserGuide/PDF/UserGuide.pdf
+            doc/ProgrammerGuide/PDF/ProgrammerGuide.pdf
+          if-no-files-found: ignore
