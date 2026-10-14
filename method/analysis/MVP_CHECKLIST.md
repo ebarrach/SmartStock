@@ -64,7 +64,7 @@
 - [x] Display alerts
 - [x] Display the history of product additions and removals
 - [x] Refresh information after an operation
-- [ ] Keep data synchronized between the sensors and the application
+- [x] Keep data synchronized between the sensors and the application
 
 ---
 
@@ -117,10 +117,10 @@ Result:
 
 Task SS-001.2 can be considered complete when:
 
-- [ ] The MVP scope is defined
+- [x] The MVP scope is defined
 - [ ] The acceptance criteria are documented
-- [ ] The main 40 → 39 scenario is defined
-- [ ] The scenario is represented in Anémone
-- [ ] The expected result is verifiable
+- [x] The main 40 → 39 scenario is defined
+- [x] The scenario is represented in Anémone
+- [x] The expected result is verifiable
 - [ ] The documentation is available in the repository
 - [ ] ClickUp task SS-001.2 references this document
