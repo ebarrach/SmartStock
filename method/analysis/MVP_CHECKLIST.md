@@ -20,10 +20,10 @@
 - [x] Detect discrepancies between measured and recorded stock
 - [x] Record the expiry date of each batch
 - [x] Alert the user when a product is approaching its expiry date
-- [ ] Monitor the temperature inside the cabinet
-- [ ] Monitor the humidity inside the cabinet
-- [ ] Alert the user when temperature or humidity exceeds configured limits
-- [ ] Record temperature and humidity history
+- [x] Monitor the temperature inside the cabinet
+- [x] Monitor the humidity inside the cabinet
+- [x] Alert the user when temperature or humidity exceeds configured limits
+- [x] Record temperature and humidity history
 
 
 ### Sensors
