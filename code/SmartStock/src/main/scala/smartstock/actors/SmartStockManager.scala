@@ -50,7 +50,7 @@ object SmartStockManager {
     replyTo: ActorRef[StockActor.StockResult]
   ) extends Command
 
-  // NOUVEAU : scan et mesure liés à un lot
+  // NOUVEAU : scan et mesure liÃ©s Ã  un lot
   final case class ScanBatch(
     batchId: String,
     medicationId: String,
@@ -173,6 +173,55 @@ object SmartStockManager {
     replyTo: ActorRef[TemperatureActor.TemperatureResult]
   ) extends Command
 
+  // Configuration des limites de temperature
+  final case class SetTemperatureThresholds(
+    min: Double,
+    max: Double,
+    replyTo: ActorRef[TemperatureActor.TemperatureResult]
+  ) extends Command
+
+  final case class GetTemperatureThresholds(
+    replyTo: ActorRef[TemperatureActor.TemperatureResult]
+  ) extends Command
+
+  // Mesures et configuration de l'humidite
+  final case class MeasureHumidity(
+    value: Double,
+    replyTo: ActorRef[HumidityActor.HumidityResult]
+  ) extends Command
+
+  final case class SetHumidityThresholds(
+    min: Double,
+    max: Double,
+    replyTo: ActorRef[HumidityActor.HumidityResult]
+  ) extends Command
+
+  final case class GetHumidityThresholds(
+    replyTo: ActorRef[HumidityActor.HumidityResult]
+  ) extends Command
+
+  final case class SimulateHumidityFailure(
+    replyTo: ActorRef[HumidityActor.HumidityResult]
+  ) extends Command
+
+  final case class RecoverHumiditySensor(
+    replyTo: ActorRef[HumidityActor.HumidityResult]
+  ) extends Command
+
+  // Detection infrarouge
+  final case class DetectObject(
+    detected: Boolean,
+    replyTo: ActorRef[InfraredActor.InfraredResult]
+  ) extends Command
+
+  final case class SimulateInfraredFailure(
+    replyTo: ActorRef[InfraredActor.InfraredResult]
+  ) extends Command
+
+  final case class RecoverInfraredSensor(
+    replyTo: ActorRef[InfraredActor.InfraredResult]
+  ) extends Command
+
   def apply(): Behavior[Command] =
     Behaviors.setup { context =>
 
@@ -201,7 +250,7 @@ object SmartStockManager {
         "batch-actor"
       )
 
-      // BatchActor est maintenant transmis à HardwareActor.
+      // BatchActor est maintenant transmis Ã  HardwareActor.
       val hardwareActor = context.spawn(
         HardwareActor(
           stockActor,
@@ -214,6 +263,16 @@ object SmartStockManager {
       val temperatureActor = context.spawn(
         TemperatureActor(),
         "temperature-actor"
+      )
+
+      val humidityActor = context.spawn(
+        HumidityActor(),
+        "humidity-actor"
+      )
+
+      val infraredActor = context.spawn(
+        InfraredActor(),
+        "infrared-actor"
       )
 
       Behaviors.receiveMessage {
@@ -437,6 +496,54 @@ object SmartStockManager {
           temperatureActor ! TemperatureActor.RecoverSensor(
             replyTo
           )
+          Behaviors.same
+
+        case SetTemperatureThresholds(min, max, replyTo) =>
+          temperatureActor ! TemperatureActor.SetThresholds(
+            min, max, replyTo
+          )
+          Behaviors.same
+
+        case GetTemperatureThresholds(replyTo) =>
+          temperatureActor ! TemperatureActor.GetThresholds(replyTo)
+          Behaviors.same
+
+        case MeasureHumidity(value, replyTo) =>
+          humidityActor ! HumidityActor.MeasureHumidity(
+            value, replyTo
+          )
+          Behaviors.same
+
+        case SetHumidityThresholds(min, max, replyTo) =>
+          humidityActor ! HumidityActor.SetThresholds(
+            min, max, replyTo
+          )
+          Behaviors.same
+
+        case GetHumidityThresholds(replyTo) =>
+          humidityActor ! HumidityActor.GetThresholds(replyTo)
+          Behaviors.same
+
+        case SimulateHumidityFailure(replyTo) =>
+          humidityActor ! HumidityActor.SimulateFailure(replyTo)
+          Behaviors.same
+
+        case RecoverHumiditySensor(replyTo) =>
+          humidityActor ! HumidityActor.RecoverSensor(replyTo)
+          Behaviors.same
+
+        case DetectObject(detected, replyTo) =>
+          infraredActor ! InfraredActor.DetectObject(
+            detected, replyTo
+          )
+          Behaviors.same
+
+        case SimulateInfraredFailure(replyTo) =>
+          infraredActor ! InfraredActor.SimulateFailure(replyTo)
+          Behaviors.same
+
+        case RecoverInfraredSensor(replyTo) =>
+          infraredActor ! InfraredActor.RecoverSensor(replyTo)
           Behaviors.same
       }
     }

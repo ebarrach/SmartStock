@@ -2,7 +2,6 @@
 package smartstock
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import smartstock.actors.TemperatureActor
@@ -13,7 +12,7 @@ class TemperatureActorSpec
 
   "TemperatureActor" should {
 
-    "accepter une température normale" in {
+    "accepter une temperature normale" in {
 
       val actor = spawn(TemperatureActor())
 
@@ -30,7 +29,7 @@ class TemperatureActorSpec
       )
     }
 
-    "détecter une température trop élevée" in {
+    "detecter une temperature trop elevee" in {
 
       val actor = spawn(TemperatureActor())
 
@@ -45,12 +44,12 @@ class TemperatureActorSpec
       probe.expectMessage(
         TemperatureActor.TemperatureAlert(
           28.0,
-          "Température trop élevée"
+          "Temperature trop elevee"
         )
       )
     }
 
-    "détecter une température trop basse" in {
+    "detecter une temperature trop basse" in {
 
       val actor = spawn(TemperatureActor())
 
@@ -65,7 +64,7 @@ class TemperatureActorSpec
       probe.expectMessage(
         TemperatureActor.TemperatureAlert(
           10.0,
-          "Température trop basse"
+          "Temperature trop basse"
         )
       )
     }
@@ -83,7 +82,7 @@ class TemperatureActorSpec
 
       probe.expectMessage(
         TemperatureActor.SensorFailure(
-          "Panne du capteur de température"
+          "Panne du capteur de temperature"
         )
       )
 
@@ -94,12 +93,12 @@ class TemperatureActorSpec
 
       probe.expectMessage(
         TemperatureActor.SensorFailure(
-          "Capteur de température indisponible"
+          "Capteur de temperature indisponible"
         )
       )
     }
 
-    "reprendre les mesures après rétablissement" in {
+    "reprendre les mesures apres retablissement" in {
 
       val actor = spawn(TemperatureActor())
 
@@ -112,7 +111,7 @@ class TemperatureActorSpec
 
       probe.expectMessage(
         TemperatureActor.SensorFailure(
-          "Panne du capteur de température"
+          "Panne du capteur de temperature"
         )
       )
 
@@ -120,18 +119,10 @@ class TemperatureActorSpec
         probe.ref
       )
 
-      // Le code actuel utilise NaN pour signaler
-      // le rétablissement du capteur.
-      val recovery = probe.receiveMessage()
-
-      assert(
-        recovery match {
-          case TemperatureActor.TemperatureNormal(value) =>
-            value.isNaN
-
-          case _ =>
-            false
-        }
+      probe.expectMessage(
+        TemperatureActor.SensorRecovered(
+          "Capteur de temperature retabli"
+        )
       )
 
       actor ! TemperatureActor.MeasureTemperature(
@@ -141,6 +132,80 @@ class TemperatureActorSpec
 
       probe.expectMessage(
         TemperatureActor.TemperatureNormal(22.0)
+      )
+    }
+
+    "permettre de modifier les seuils" in {
+
+      val actor = spawn(TemperatureActor())
+
+      val probe =
+        createTestProbe[TemperatureActor.TemperatureResult]()
+
+      actor ! TemperatureActor.SetThresholds(
+        18.0,
+        24.0,
+        probe.ref
+      )
+
+      probe.expectMessage(
+        TemperatureActor.Thresholds(18.0, 24.0)
+      )
+
+      actor ! TemperatureActor.MeasureTemperature(
+        25.0,
+        probe.ref
+      )
+
+      probe.expectMessage(
+        TemperatureActor.TemperatureAlert(
+          25.0,
+          "Temperature trop elevee"
+        )
+      )
+    }
+
+    "permettre de consulter les seuils" in {
+
+      val actor = spawn(TemperatureActor())
+
+      val probe =
+        createTestProbe[TemperatureActor.TemperatureResult]()
+
+      actor ! TemperatureActor.GetThresholds(
+        probe.ref
+      )
+
+      probe.expectMessage(
+        TemperatureActor.Thresholds(15.0, 25.0)
+      )
+    }
+
+    "refuser des seuils invalides" in {
+
+      val actor = spawn(TemperatureActor())
+
+      val probe =
+        createTestProbe[TemperatureActor.TemperatureResult]()
+
+      actor ! TemperatureActor.SetThresholds(
+        30.0,
+        10.0,
+        probe.ref
+      )
+
+      probe.expectMessage(
+        TemperatureActor.ThresholdsRejected(
+          "Seuils invalides : min doit etre inferieur a max"
+        )
+      )
+
+      actor ! TemperatureActor.GetThresholds(
+        probe.ref
+      )
+
+      probe.expectMessage(
+        TemperatureActor.Thresholds(15.0, 25.0)
       )
     }
   }
