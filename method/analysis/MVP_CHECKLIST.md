@@ -1,9 +1,5 @@
 # SmartStock — MVP Checklist
 
-> Task: SS-001.2 — Define the MVP Criteria for the Smart Cabinet and Emergency Bag  
-> Status: In Progress  
-> Sprint: S1 — Scoping
-
 ## 1. Smart Cabinet
 
 ### Identification and Stock Management
