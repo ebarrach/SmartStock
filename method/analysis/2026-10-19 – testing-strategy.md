@@ -3,21 +3,21 @@
 ## 1. CI/CD Workflows and Existing Tests Audit (SS-006.1)
 
 ### Overview
-The repository contains three GitHub Actions workflows located in `.github/workflows/`: `ci.yml`, `docs.yml`, and `qodana_code_quality.yml`. Currently, all three are restricted to manual triggers via `on: workflow_dispatch`. No automated event triggers (such as `push` or `pull_request`) are enabled, leaving the `main` branch unprotected against regressions and unverified builds.
+The repository contains three GitHub Actions workflows located in `../../.github/workflows`: `ci.yml`, `docs.yml`, and `qodana_code_quality.yml`. Currently, all three are restricted to manual triggers via `on: workflow_dispatch`. No automated event triggers (such as `push` or `pull_request`) are enabled, leaving the `main` branch unprotected against regressions and unverified builds.
 
 ### Analyzed Workflows Detail
 
 1. **`ci.yml` (CI - Qualité & Tests):**
-   - **Backend Agent (`code/smartstock-agent`):**
+   - **Backend Agent (`../../code/smartstock-agent`):**
      - Environment: Ubuntu, JDK 21 (Eclipse Temurin), sbt.
      - Executed steps: Compilation (`sbt compile`), code style verification (`sbt scalafmtCheckAll`), and unit tests (`sbt test`).
-   - **Mobile Application (`code/mobile-app`):**
+   - **Mobile Application (`../../code/mobile-app`):**
      - Environment: Ubuntu, Node.js 22, React Native.
      - Executed steps: Clean dependency installation (`npm ci`), code formatting check (`npm run format:check`), static linting (`npm run lint`), TypeScript type checking (`npx tsc --noEmit`), and Jest unit testing (`npm test -- --runInBand`).
 
 2. **`docs.yml` (Docs - Publier PDFs):**
    - Environment: Ubuntu.
-   - Executed steps: Lists the contents of the `doc/` directory and attempts to archive `UserGuide.pdf` and `ProgrammerGuide.pdf` using `actions/upload-artifact@v4`.
+   - Executed steps: Lists the contents of the `../../doc` directory and attempts to archive `UserGuide.pdf` and `ProgrammerGuide.pdf` using `actions/upload-artifact@v4`.
    - Limitation: Does not automatically compile or generate PDFs from source; it relies entirely on pre-existing files.
 
 3. **`qodana_code_quality.yml` (Qodana):**
