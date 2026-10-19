@@ -1,0 +1,38 @@
+# Inventaire du Matériel et Capteurs (SS-005.1)
+
+## Hardware principal et Contrôleurs
+- [x] 1x Raspberry pi 4, sd card, power supply, case, heatsink *(Note: annoté "à tester", câble HDMI barré)*
+- [x] 1x Genuino ou arduino 1010
+- [x] 1x InterfaceKit 8/8/8
+- [x] 1x VINT HUB Phidget
+- [x] 1x Alimentation + hub USB
+- [x] 1x Dual relay board
+- [x] 1x Isolated Digital Input Phidget
+
+## Capteurs Phidgets
+- [x] 1x Barometer Phidget
+- [x] 1x Distance phidget 1300mm
+- [x] 1x Graphic LCD Phidget
+- [x] 1x Humididty phidget
+- [x] 1x Light phidget
+- [x] 1x Sonar Phidget
+- [x] 1x Temperature phidget
+
+## Autres Capteurs et Composants
+- [x] 9x Boutons/interrupteurs
+- [x] 8x LEDS blanche/jaune/rouge ou kit LED
+- [x] 2x Touch sensors
+- [x] 2x Sliders
+- [x] 1x Force sensor
+- [x] 1x IR reflective 10cm
+- [x] 1x IR reflective 5mm
+- [x] 1x Joystick
+- [x] 1x Magnetic sensor
+- [x] 1x Rotation sensors
+- [x] 1x Temperature sensor
+- [x] 1x Vibration sensor
+
+## Accessoires
+- [x] 1x Board prototyping
+- [x] 1x Boite capteurs
+- [x] 1x Cable mini usb
