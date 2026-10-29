@@ -1,0 +1,3 @@
+# Keep scenario/policy bytes stable: metadata contains SHA-256 of these files.
+anemone-scenarios/** -text
+config/** -text
