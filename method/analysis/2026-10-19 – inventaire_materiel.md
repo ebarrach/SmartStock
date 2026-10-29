@@ -1,17 +1,12 @@
-# Inventaire du MatÃ©riel et Capteurs (SS-005.1)
+# Inventaire du Matériel et Capteurs (SS-005.1)
 
 > Correctif du 29/10 : inventaire historique déclaré, non revérifié physiquement.
 > Le matériel cible actuel est le Raspberry Pi 3 Model B. La ligne Pi 4 ci-dessous
 > décrit l’ancienne liste et ne prouve pas la disponibilité du Pi 3.
 > Voir `2026-10-29 – CORRECTIF_MATERIEL.md` pour DataMatrix, alimentation et inconnues.
 
-> Correctif du 29/10 : inventaire historique déclaré, non revérifié physiquement.
-> Le matériel cible actuel est le Raspberry Pi 3 Model B. La ligne Pi 4 ci-dessous
-> décrit l’ancienne liste et ne prouve pas la disponibilité du Pi 3.
-> Voir `2026-10-29 – CORRECTIF_MATERIEL.md` pour DataMatrix, alimentation et inconnues.
-
-## Hardware principal et ContrÃ´leurs
-- [x] 1x Raspberry pi 4, sd card, power supply, case, heatsink *(Note: annotÃ© "Ã  tester", cÃ¢ble HDMI barrÃ©)*
+## Hardware principal et Contrôleurs
+- [x] 1x Raspberry pi 4, sd card, power supply, case, heatsink *(Note: annoté "à tester", câble HDMI barré)*
 - [x] 1x Genuino ou arduino 1010
 - [x] 1x InterfaceKit 8/8/8
 - [x] 1x VINT HUB Phidget
