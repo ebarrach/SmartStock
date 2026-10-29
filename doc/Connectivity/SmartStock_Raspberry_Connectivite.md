@@ -4,11 +4,14 @@
 
 Reference architecture: local Wi-Fi communication between the cabinet and the phone, and Bluetooth Low Energy (BLE) communications between the bag, the cabinet and the phone. Choices not made are marked “to be confirmed by the team”.
 
+> Current S1 decisions and remaining hardware checks: [2026-10-29 addendum](../../method/analysis/2026-10-29%20–%20CONNECTIVITY_DECISIONS.md).
+> Historical examples below do not prove live radio communication.
+
 ## 1. Summary table of tools and technologies
 
 | Tool/technology | Role in the project | Status |
 | ---| ---| ---|
-| Raspberry Pi | On-board computer from the cabinet; hosts local functions and the SmartStock API. | Exact model: to be confirmed by the team. |
+| Raspberry Pi | On-board computer from the cabinet; hosts local functions and the SmartStock API. | Raspberry Pi 3 Model B (current decision, 2026-10-29). |
 | Raspberry Pi OS | Raspberry Pi operating system. | Version/configuration: to be confirmed by the team. |
 | Wi-Fi hotspot | Place the Pi and the phone on the same local network. | Configuration and deployment: to be confirmed by the team. |
 | REST API | Exposes operations accessible by HTTP(S) requests, for example consulting the status of the cabinet. | Routes and methods: to be confirmed by the team. |
@@ -20,7 +23,7 @@ Reference architecture: local Wi-Fi communication between the cabinet and the ph
 | ATT / L2CAP | BLE layers used to access GATT attributes and transport exchanges. | Typically managed by the BLE stack. |
 | React Native app | Phone interface; uses the REST API over Wi-Fi and connects to the bag using BLE. | Libraries and permissions: to be confirmed by the team. |
 | SmartStock service on the Pi | Connects sensors to local functions and REST API. | Language and organization: to be confirmed by the team. |
-| Cabinet sensors | Weight sensors, NFC and temperature/humidity of the hardware concept. | References and interfaces: to be confirmed by the team. |
+| Cabinet sensors | Weight, DataMatrix identification, temperature/humidity and infrared. | References and interfaces: to be confirmed by the team. |
 
 ## 2. Glossary: role and ease of implementation
 

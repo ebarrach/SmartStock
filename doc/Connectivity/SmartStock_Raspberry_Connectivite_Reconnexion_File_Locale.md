@@ -49,12 +49,12 @@ CREATE TABLE outbox (
 | Storage | Persistent local database that survives a power outage (SQLite intended). | To be decided (SD card wear) |
 | Send and ack | Sending in `seq` order, deletion after ack. A “duplicate” ack counts as a success. | Proposed |
 | Starting the Pi | `sending` entries revert to `pending` and are resent; the receiver ignores duplicates. | Proposed |
-| Queue full | 100 events under test. The oldest ones are deleted and the hole remains visible in the `seq`. | To be decided (delete, block, alert) |
+| Queue full | S1 simulation: 100 events, refuse new input when full; never evict an unacknowledged event. | S1 default: backpressure and explicit queue-full error |
 | Retention | Maximum lifetime of an unacknowledged event. Should acknowledged events be kept so that the phone can read them back from a `seq`? | To be decided |
 | Queue on the bag side | The bag probably only has a small buffer: its size still has to be sized. | To be decided |
 
 ## 4. Verification
-The queue logic has been simulated (SQLite, simulated link, receiver with deduplication): it validates the logic, not the actual radio links. Script: `smartstock_queue_sim.py`.
+The queue logic has been simulated (SQLite, simulated link, receiver with deduplication): it validates the logic, not the actual radio links. The historical script was absent at audit. Reproduction added on 2026-10-29: `code/connectivity/smartstock_queue_sim.py` and `test_queue.py` (repository root).
 
 | Verification | Observation | Result |
 | ---| ---| ---|
@@ -67,7 +67,7 @@ The queue logic has been simulated (SQLite, simulated link, receiver with dedupl
 | Lost ack | The event stays in the queue, is resent, and then processed once. | Passed |
 | Stopping during a send | `sending` entry reset to `pending` on restart. | Passed |
 | Resume from last `seq` | Receiver at 6 out of 10 events: 7 to 10 left. | Passed |
-| Queue full | 150 added for 100 capacity: `seq` 51 to 150 kept. | Passed |
+| Queue full | Historical eviction result not reproducible; current simulation retains pending events. | Superseded |
 
 ## 5. Tests remaining to be done on the prototype
 
@@ -77,3 +77,10 @@ The queue logic has been simulated (SQLite, simulated link, receiver with dedupl
 | Real BLE outage | Move the bag away, reconnect, check recovery from the last `seq`. | To do |
 | Pi power outage | Unplug the Pi with a non-empty queue: no lost or corrupted events. | To do |
 | Simultaneous BLE connections | Check that the bag holds two clients at the same time (cabinet and phone). | To do |
+## 2026-10-29 correction
+
+Historical result rows above are not independent evidence. Reproduced tests:
+`python -m unittest discover -s code/connectivity -v`. The send callback returns
+an internal projection `{corr, status}` of the ack envelope. No BLE fragmentation,
+TLS, bag firmware, sequence handshake or physical power-cut guarantee is provided.
+See the dated connectivity addendum for boundaries.

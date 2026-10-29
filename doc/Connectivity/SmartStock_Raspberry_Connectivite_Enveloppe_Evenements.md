@@ -75,3 +75,10 @@ All messages exchanged between the bag, the cabinet (Raspberry Pi) and the phone
 | Resends, duplicates, outages | Replay the same `id` twice, cut off the Wi-Fi then the BLE, check the order and the absence of loss. | To be done on prototype |
 
 Tests on a real radio link remain to be carried out on the prototype.
+## 2026-10-29 S1 decision
+
+The eight-field v1 container is specified in `code/shared/events/envelope.schema.json`
+(repository root), with two JSON examples. This is a container contract, not the
+SS-007 business API. See the [dated addendum](../../method/analysis/2026-10-29%20–%20CONNECTIVITY_DECISIONS.md)
+for ack rules, validation boundaries and remaining BLE/TLS work. Earlier Passed
+entries were documentary claims; use the local audit log for reproduced results.
