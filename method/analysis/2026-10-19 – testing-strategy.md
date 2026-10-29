@@ -1,5 +1,9 @@
 # SS-006 — Test Strategy, Quality Assurance, and Issue Tracking
 
+> Historical audit as of 2026-10-19. For current triggers, reproduced tests,
+> acceptance matrix and anomaly register, read `2026-10-29 – QUALITY_MATRIX.md`.
+> A configured CI step is not evidence of a successful execution.
+
 ## 1. CI/CD Workflows and Existing Tests Audit (SS-006.1)
 
 ### Overview
