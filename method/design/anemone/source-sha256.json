@@ -1,0 +1,10 @@
+{
+  "anemone-scenarios/connected/definitions.anemone": "690b65600ad3fc808e092f7a7d42e1f7304928ffc2ef6de71a7409794136b671",
+  "anemone-scenarios/connected/withdrawal.anemone": "576aab77981d1c84be7d0bbb809998188ab1ae368fb35c0fee57e0474c27e887",
+  "anemone-scenarios/temperature/definitions.anemone": "b877caf8f459b7226de9335b7ebc236a995db6b676ffeed5e81c73d5b0e3b436",
+  "anemone-scenarios/temperature/regulation.anemone": "a57b56f9436ceac6f72615dc1ca5a65c534fcbbf9b9ce3a7c5e909f13fbf7b4a",
+  "anemone-scenarios/temperature/metadata.properties": "950df7baa1cfd9ef10741a5835f796cbfea150b2931d0d52e5217a1731f4f4c7",
+  "config/temperature-policy.json": "8d32671941ea940c8589ca56de537149293d0f21b91194fff3c84a0536095141",
+  "anemone-scenarios/smartstock-procedure-datamatrix.txt": "4e1f438aae329932787a3a143d26ba97d57d01ac5d40276fba73d28e7a46856f",
+  "anemone-scenarios/smartstock-procedure-temperature.txt": "15c0245c87f51bbce9a45edca64f56c66cb603bcaa3eab91774b548a8a63bdca"
+}

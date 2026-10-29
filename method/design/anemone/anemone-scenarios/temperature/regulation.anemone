@@ -1,0 +1,1 @@
+sum q in Temperatures: get(temperature(q));tell(temperature_current(q));tell(ventilation(fan(q)))

@@ -1,0 +1,594 @@
+============================================================
+SMARTSTOCK — DÉMONSTRATION ANEMONE / TEMPÉRATURE
+Scénario : la température simulée passe à 27.0 °C
+============================================================
+
+OBJECTIF
+--------
+Reconstruire manuellement dans Anemone le modèle réellement
+exécuté par la Démo 02 de SmartStock Visualizer.
+
+Une température simulée est publiée dans le Blackboard.
+L'agent Anemone sélectionne cette température et applique ses
+équations pour produire un terme ventilation(puissance).
+Deux ventilateurs de l'interface illustrent ensuite la puissance.
+
+SEUILS DE DÉMONSTRATION
+Ce sont des paramètres pédagogiques configurables.
+Ils ne constituent pas des recommandations médicales,
+pharmaceutiques ou une certification de conservation de produits.
+
+Le modèle actuel accepte 15.0 à 35.0 °C, au dixième de degré.
+Les exemples sont des entrées simulées : aucun capteur physique
+de température et aucun ventilateur matériel ne sont pilotés.
+
+Ce document est autonome : les définitions à copier sont données
+en entier. Ne soumettre au parseur que les blocs Anemone indiqués.
+Les boutons GUI mentionnés proviennent des sources de l'installation.
+Les résultats du moteur sont validés headless ; les manipulations
+GUI décrites ci-dessous restent un tutoriel à suivre manuellement.
+
+
+============================================================
+ÉTAPE 1 — COMPRENDRE LE SCÉNARIO
+============================================================
+
+Le stockage est initialement représenté par une mesure de 23.0 °C.
+Pour la démonstration principale, l'étudiant applique ensuite 27.0 °C.
+On veut laisser Anemone produire :
+
+    ventilation(75)
+
+EXPLICATION POUR LE PROF :
+"Nous simulons une mesure, mais la décision de ventilation du
+mode Anemone provient réellement de l'agent et de ses équations.
+Le navigateur anime une puissance reçue ; il ne la choisit pas."
+
+
+============================================================
+ÉTAPE 2 — COMPRENDRE LES TERMES
+============================================================
+
+L'atome t270 signifie 270 dixièmes, donc 27.0 °C.
+Ce n'est pas une variable et ce n'est pas le nombre décimal 27.0.
+Le préfixe t permet une représentation discrète explicite.
+
+    t150 -> 15.0 °C
+    t200 -> 20.0 °C
+    t230 -> 23.0 °C
+    t250 -> 25.0 °C
+    t270 -> 27.0 °C
+    t300 -> 30.0 °C
+    t350 -> 35.0 °C
+
+Termes employés :
+
+temperature(t270)
+    Mesure d'entrée à traiter. Elle sera consommée par get.
+
+temperature_current(t270)
+    Mesure traitée conservée par l'agent dans le store.
+
+fan(t270)
+    Expression à simplifier avec les équations Anemone.
+    Il ne s'agit pas d'un nouveau terme publié seul dans le store.
+
+ventilation(75)
+    Sortie de décision publiée par le moteur.
+    75 est une puissance en pourcentage, pas une température.
+
+q
+    Variable de l'agent, instanciée parmi les membres de Temperatures.
+
+
+============================================================
+ÉTAPE 3 — DÉMARRER ANEMONE ET PRÉPARER LE STORE
+============================================================
+
+Ouvrir Anemone via Anemone.bat.
+Revenir à The interactive blackboard.
+Préparer un Current store vide, sans agent ancien en cours.
+Clear vide le store mais ne retire pas les définitions.
+
+La GUI autonome utilise son propre Blackboard.
+Elle n'affiche pas la session headless du Visualizer.
+Ne pas mélanger ces deux processus pour vérifier un même état.
+
+
+============================================================
+ÉTAPE 4 — SAISIR LES DÉFINITIONS COMPLÈTES
+============================================================
+
+Cliquer : New Definition(s).
+Copier tout le bloc ci-dessous, depuis eset jusqu'à la dernière
+équation. Cliquer ensuite Submit.
+
+Le bloc est une copie exacte du fichier effectivement chargé :
+    anemone-scenarios/temperature/definitions.anemone
+
+----- DÉBUT DU BLOC À COPIER -----
+eset Temperatures = {t150,t151,t152,t153,t154,t155,t156,t157,t158,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t171,t172,t173,t174,t175,t176,t177,t178,t179,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192,t193,t194,t195,t196,t197,t198,t199,t200,t201,t202,t203,t204,t205,t206,t207,t208,t209,t210,t211,t212,t213,t214,t215,t216,t217,t218,t219,t220,t221,t222,t223,t224,t225,t226,t227,t228,t229,t230,t231,t232,t233,t234,t235,t236,t237,t238,t239,t240,t241,t242,t243,t244,t245,t246,t247,t248,t249,t250,t251,t252,t253,t254,t255,t256,t257,t258,t259,t260,t261,t262,t263,t264,t265,t266,t267,t268,t269,t270,t271,t272,t273,t274,t275,t276,t277,t278,t279,t280,t281,t282,t283,t284,t285,t286,t287,t288,t289,t290,t291,t292,t293,t294,t295,t296,t297,t298,t299,t300,t301,t302,t303,t304,t305,t306,t307,t308,t309,t310,t311,t312,t313,t314,t315,t316,t317,t318,t319,t320,t321,t322,t323,t324,t325,t326,t327,t328,t329,t330,t331,t332,t333,t334,t335,t336,t337,t338,t339,t340,t341,t342,t343,t344,t345,t346,t347,t348,t349,t350}.
+eqn
+fan(t150)=0.
+fan(t151)=0.
+fan(t152)=0.
+fan(t153)=0.
+fan(t154)=0.
+fan(t155)=0.
+fan(t156)=0.
+fan(t157)=0.
+fan(t158)=0.
+fan(t159)=0.
+fan(t160)=0.
+fan(t161)=0.
+fan(t162)=0.
+fan(t163)=0.
+fan(t164)=0.
+fan(t165)=0.
+fan(t166)=0.
+fan(t167)=0.
+fan(t168)=0.
+fan(t169)=0.
+fan(t170)=0.
+fan(t171)=0.
+fan(t172)=0.
+fan(t173)=0.
+fan(t174)=0.
+fan(t175)=0.
+fan(t176)=0.
+fan(t177)=0.
+fan(t178)=0.
+fan(t179)=0.
+fan(t180)=0.
+fan(t181)=0.
+fan(t182)=0.
+fan(t183)=0.
+fan(t184)=0.
+fan(t185)=0.
+fan(t186)=0.
+fan(t187)=0.
+fan(t188)=0.
+fan(t189)=0.
+fan(t190)=0.
+fan(t191)=0.
+fan(t192)=0.
+fan(t193)=0.
+fan(t194)=0.
+fan(t195)=0.
+fan(t196)=0.
+fan(t197)=0.
+fan(t198)=0.
+fan(t199)=0.
+fan(t200)=0.
+fan(t201)=0.
+fan(t202)=0.
+fan(t203)=0.
+fan(t204)=0.
+fan(t205)=0.
+fan(t206)=0.
+fan(t207)=0.
+fan(t208)=0.
+fan(t209)=0.
+fan(t210)=0.
+fan(t211)=0.
+fan(t212)=0.
+fan(t213)=0.
+fan(t214)=0.
+fan(t215)=0.
+fan(t216)=0.
+fan(t217)=0.
+fan(t218)=0.
+fan(t219)=0.
+fan(t220)=25.
+fan(t221)=25.
+fan(t222)=25.
+fan(t223)=25.
+fan(t224)=25.
+fan(t225)=25.
+fan(t226)=25.
+fan(t227)=25.
+fan(t228)=25.
+fan(t229)=25.
+fan(t230)=25.
+fan(t231)=25.
+fan(t232)=25.
+fan(t233)=25.
+fan(t234)=25.
+fan(t235)=25.
+fan(t236)=25.
+fan(t237)=25.
+fan(t238)=25.
+fan(t239)=25.
+fan(t240)=50.
+fan(t241)=50.
+fan(t242)=50.
+fan(t243)=50.
+fan(t244)=50.
+fan(t245)=50.
+fan(t246)=50.
+fan(t247)=50.
+fan(t248)=50.
+fan(t249)=50.
+fan(t250)=50.
+fan(t251)=50.
+fan(t252)=50.
+fan(t253)=50.
+fan(t254)=50.
+fan(t255)=50.
+fan(t256)=50.
+fan(t257)=50.
+fan(t258)=50.
+fan(t259)=50.
+fan(t260)=75.
+fan(t261)=75.
+fan(t262)=75.
+fan(t263)=75.
+fan(t264)=75.
+fan(t265)=75.
+fan(t266)=75.
+fan(t267)=75.
+fan(t268)=75.
+fan(t269)=75.
+fan(t270)=75.
+fan(t271)=75.
+fan(t272)=75.
+fan(t273)=75.
+fan(t274)=75.
+fan(t275)=75.
+fan(t276)=75.
+fan(t277)=75.
+fan(t278)=75.
+fan(t279)=75.
+fan(t280)=100.
+fan(t281)=100.
+fan(t282)=100.
+fan(t283)=100.
+fan(t284)=100.
+fan(t285)=100.
+fan(t286)=100.
+fan(t287)=100.
+fan(t288)=100.
+fan(t289)=100.
+fan(t290)=100.
+fan(t291)=100.
+fan(t292)=100.
+fan(t293)=100.
+fan(t294)=100.
+fan(t295)=100.
+fan(t296)=100.
+fan(t297)=100.
+fan(t298)=100.
+fan(t299)=100.
+fan(t300)=100.
+fan(t301)=100.
+fan(t302)=100.
+fan(t303)=100.
+fan(t304)=100.
+fan(t305)=100.
+fan(t306)=100.
+fan(t307)=100.
+fan(t308)=100.
+fan(t309)=100.
+fan(t310)=100.
+fan(t311)=100.
+fan(t312)=100.
+fan(t313)=100.
+fan(t314)=100.
+fan(t315)=100.
+fan(t316)=100.
+fan(t317)=100.
+fan(t318)=100.
+fan(t319)=100.
+fan(t320)=100.
+fan(t321)=100.
+fan(t322)=100.
+fan(t323)=100.
+fan(t324)=100.
+fan(t325)=100.
+fan(t326)=100.
+fan(t327)=100.
+fan(t328)=100.
+fan(t329)=100.
+fan(t330)=100.
+fan(t331)=100.
+fan(t332)=100.
+fan(t333)=100.
+fan(t334)=100.
+fan(t335)=100.
+fan(t336)=100.
+fan(t337)=100.
+fan(t338)=100.
+fan(t339)=100.
+fan(t340)=100.
+fan(t341)=100.
+fan(t342)=100.
+fan(t343)=100.
+fan(t344)=100.
+fan(t345)=100.
+fan(t346)=100.
+fan(t347)=100.
+fan(t348)=100.
+fan(t349)=100.
+fan(t350)=100.
+----- FIN DU BLOC À COPIER -----
+
+Ne pas copier les lignes DÉBUT/FIN elles-mêmes.
+
+Vérifier l'acceptation de l'ensemble et des équations.
+Il doit y avoir 201 membres et 201 équations.
+Ne pas charger une deuxième table contradictoire dans cette session.
+
+Le même chargement peut se faire en deux Submit :
+1. uniquement la première ligne eset Temperatures = {...}.
+2. eqn puis toutes les équations fan(...)=... .
+
+Fermer la fenêtre des définitions après Submit.
+
+EXPLICATION POUR LE PROF :
+"Anemone connaît une table de décisions déclarative.
+Chaque entrée de température a une équation fan correspondante.
+Le Bridge ne fait pas de comparaison numérique pour choisir
+la puissance pendant une requête. Le moteur résout fan(q)."
+
+
+============================================================
+ÉTAPE 5 — REPRODUIRE L'ÉTAT INITIAL DE L'APPLICATION
+============================================================
+
+Dans si-term, écrire :
+
+temperature(t230)
+
+Multiplicity : 1
+Cliquer : Tell.
+
+Current store :
+
+    temperature(t230) [1]
+
+À ce stade, aucune ventilation n'a été décidée.
+Dans l'application, fanPower est null, pas une valeur inventée.
+Si l'on exécutait l'agent sur cette mesure, il produirait 25 %.
+Pour le scénario principal, nous allons remplacer la mesure par 27 °C.
+
+
+============================================================
+ÉTAPE 6 — APPLIQUER LA TEMPÉRATURE SIMULÉE DE 27 °C
+============================================================
+
+Retirer l'entrée initiale avant d'ajouter la suivante :
+
+    si-term : temperature(t230)
+    multiplicity : 1
+    bouton : Get
+
+Puis publier :
+
+    si-term : temperature(t270)
+    multiplicity : 1
+    bouton : Tell
+
+BLACKBOARD AVANT EXÉCUTION :
+
+    temperature(t270) [1]
+
+Une seule entrée température doit être présente.
+Ne pas conserver plusieurs mesures concurrentes : le sum
+pourrait sélectionner une autre branche exécutable.
+
+Dans le Visualizer, APPLIQUER TEMPÉRATURE remplace les anciens
+termes de la session température, publie la nouvelle entrée et
+prépare une nouvelle exécution sans recréer son Blackboard.
+
+
+============================================================
+ÉTAPE 7 — CRÉER LE VÉRITABLE AGENT TEMPÉRATURE
+============================================================
+
+Cliquer : New Autonomous Agent.
+Dans Agent to be processed, copier exactement :
+
+sum q in Temperatures: get(temperature(q));tell(temperature_current(q));tell(ventilation(fan(q)))
+
+Cliquer : Submit.
+Ne pas cliquer sur Run avant d'avoir expliqué le Blackboard.
+
+Le même agent, en présentation lisible :
+
+sum q in Temperatures:
+    get(temperature(q));
+    tell(temperature_current(q));
+    tell(ventilation(fan(q)))
+
+
+============================================================
+ÉTAPE 8 — EXPLIQUER L'AGENT INSTRUCTION PAR INSTRUCTION
+============================================================
+
+1. sum q in Temperatures:
+   Le moteur construit les instances possibles de l'agent.
+   Les valeurs vont de t150 à t350, pas de 150 à 350 °C.
+   sum est un choix généralisé, pas une addition.
+
+2. get(temperature(q))
+   Avec temperature(t270) présent, la branche q=t270 peut réussir.
+   Le moteur consomme cette entrée et conserve cette continuation.
+
+3. tell(temperature_current(q))
+   Le moteur publie la mesure traitée : temperature_current(t270).
+
+4. tell(ventilation(fan(q)))
+   La continuation contient fan(t270).
+   La simplification consulte les équations chargées.
+   fan(t270)=75 donne le terme final ventilation(75).
+
+Il n'y a pas de test JavaScript ou Java du type
+"température >= 28 donc 100" dans le chemin du mode réel.
+La table est préparée à l'avance comme des équations Anemone.
+
+
+============================================================
+ÉTAPE 9 — EXÉCUTER ET OBSERVER LES QUATRE PAS
+============================================================
+
+Cliquer Run pour terminer le scénario.
+Ou utiliser le bouton Next de la GUI pour observer un pas à la fois.
+Dans le Visualizer, le bouton correspondant est PAS À PAS.
+
+PAS 1 — DÉVELOPPEMENT DU CHOIX
+    Blackboard : temperature(t270) [1]
+    Agent restant : choix développé sur Temperatures.
+    La mesure n'est pas encore consommée.
+
+PAS 2 — CONSOMMATION DE LA MESURE
+    Blackboard : VIDE.
+    Agent restant :
+    tell(temperature_current(t270));tell(ventilation(fan(t270)))
+
+PAS 3 — PUBLICATION DE LA MESURE TRAITÉE
+    Blackboard : temperature_current(t270) [1]
+    Agent restant EXACT :
+    tell(ventilation(fan(t270)))
+
+PAS 4 — RÉSOLUTION ET PUBLICATION DE LA VENTILATION
+    Blackboard :
+    temperature_current(t270) [1]
+    ventilation(75) [1]
+    Agent terminé.
+
+Ces quatre étapes proviennent des exécutions du vrai moteur.
+Le store n'a pas d'ordre d'affichage garanti.
+Le journal de l'application conserve les observations de ces pas ;
+il ne réintroduit pas la mesure consommée dans le Blackboard actuel.
+
+
+============================================================
+ÉTAPE 10 — EXEMPLES AVEC PLUSIEURS TEMPÉRATURES
+============================================================
+
+Valeurs de la séquence automatique effectivement configurée :
+
+    20.0 °C -> t200 -> fan(t200)=0   -> ventilation(0)
+    23.0 °C -> t230 -> fan(t230)=25  -> ventilation(25)
+    25.0 °C -> t250 -> fan(t250)=50  -> ventilation(50)
+    27.0 °C -> t270 -> fan(t270)=75  -> ventilation(75)
+    30.0 °C -> t300 -> fan(t300)=100 -> ventilation(100)
+    24.0 °C -> t240 -> fan(t240)=50  -> ventilation(50)
+
+Pour un deuxième essai MANUEL après le premier essai à 27 °C :
+1. L'agent doit être terminé.
+2. Retirer temperature_current(t270) avec Get, multiplicité 1.
+3. Retirer ventilation(75) avec Get, multiplicité 1.
+4. Publier temperature(t200) avec Tell, multiplicité 1.
+5. Soumettre de nouveau le même texte d'agent avec Submit.
+6. Exécuter Run ou quatre Next.
+7. Vérifier temperature_current(t200) [1], ventilation(0) [1].
+
+Cela reste la même instance de Blackboard.
+Les anciennes sorties sont retirées avant la nouvelle mesure.
+Ne pas publier soi-même ventilation(0) : c'est le résultat à observer.
+
+Dans le Visualizer : appliquer la nouvelle température puis RUN.
+Le Bridge réalise le nettoyage des anciens termes ; il ne publie
+aucune nouvelle puissance. La décision revient à l'agent.
+
+
+============================================================
+ÉTAPE 11 — SEUILS PÉDAGOGIQUES ET BORNES
+============================================================
+
+    15.0 <= température < 22.0 :   0 %
+    22.0 <= température < 24.0 :  25 %
+    24.0 <= température < 26.0 :  50 %
+    26.0 <= température < 28.0 :  75 %
+    28.0 <= température <=35.0 : 100 %
+
+Exemples de bornes vérifiés :
+    21.9 °C -> 0 % ; 22.0 °C -> 25 %
+    23.9 °C -> 25 % ; 24.0 °C -> 50 %
+    27.9 °C -> 75 % ; 28.0 °C -> 100 %
+
+La discrétisation par dixièmes évite de supposer un calcul
+flottant ou une comparaison numérique non vérifiée dans Anemone.
+Chaque valeur autorisée possède sa propre équation explicite.
+
+
+============================================================
+ÉTAPE 12 — VISUALISATION DES VENTILATEURS
+============================================================
+
+Le Visualizer lit le terme ventilation(...) dans le vrai store,
+expose fanPower dans le JSON et anime les deux ventilateurs.
+
+    0 %   : arrêt
+    25 %  : lent
+    50 %  : moyen
+    75 %  : rapide
+    100 % : très rapide
+
+Les transitions de vitesse sont interpolées graphiquement.
+Ce calcul d'angle/vitesse est une animation, pas la règle métier.
+Le mode de réduction des animations du navigateur peut désactiver
+la rotation ; la puissance numérique reste affichée.
+
+Anemone autonome ne dessine pas ces ventilateurs web.
+La GUI permet de vérifier les termes ; le Visualizer les illustre.
+
+
+============================================================
+INTÉGRATION AVEC LE BRIDGE JAVA
+============================================================
+
+Configuration centrale : config/temperature-policy.json.
+Préparation des définitions :
+    node experiments/generate-temperature-scenario.mjs
+
+Ce script écrit les équations Anemone, les métadonnées de contrôle
+et les paramètres d'affichage/Demo. Il ne tourne pas pour chaque
+requête et n'exécute pas la régulation réelle à la place d'Anemone.
+
+Fichiers exécutés :
+    anemone-scenarios/temperature/definitions.anemone
+    anemone-scenarios/temperature/regulation.anemone
+    anemone-scenarios/temperature/metadata.properties
+
+TemperatureEngineSession possède son ABBlackboard persistant,
+séparé de la session de stock. Les définitions sont chargées par
+AnimBachSimulParser puis addDecls/addEqns.
+
+APPLIQUER transmet la mesure via POST /api/temperature/apply?value=27.0.
+Java valide et encode le dixième, puis fait tell(temperature(t270)).
+RUN/PAS À PAS utilisent ABSimulExec.run_one sur le vrai AST.
+La puissance est lue dans le terme ventilation du store, pas déduite
+de la température dans Java. HTTP/SSE transmettent les observations.
+
+Le Diagnostic moteur montre les 201 équations chargées, l'ensemble,
+le moteur instancié et les AST avant/après le dernier run_one.
+
+
+============================================================
+MODE ANEMONE / MODE DEMO / LIMITES
+============================================================
+
+MODE ANEMONE :
+    entrée de température simulée ; décision par le vrai moteur.
+    Un Bridge indisponible provoque une erreur visible.
+
+MODE DEMO :
+    résultats et journal simulés par TemperatureDemoDataSource.
+    Fonctionne sans Bridge et porte le bandeau DONNÉES SIMULÉES.
+    La séquence automatique n'est pas une preuve d'exécution Anemone.
+
+LIMITES :
+    seuils pédagogiques, sans norme médicale revendiquée ;
+    plage finie et pas de 0.1 °C ;
+    pas de capteur ni de ventilateur physique ;
+    nouvelle entrée refusée pendant une exécution ou une pause ;
+    une session persistante en mémoire, perdue à l'arrêt JVM ;
+    RESET recrée explicitement la session à 23.0 °C sans décider
+    d'une puissance avant l'exécution de l'agent.
+
+Après modification de la politique, régénérer puis redémarrer.
+Le bloc de ce document correspond à la configuration présente lors
+de sa rédaction. Si la politique change, mettre aussi ce tutoriel
+à jour et vérifier les tests ; ne pas conserver un guide contradictoire.
