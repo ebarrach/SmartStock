@@ -72,3 +72,17 @@ créé automatiquement ; un membre peut reporter la fiche vers GitHub/ClickUp.
 Clôture : relier correction, commande et résultat ; garder le constat initial.
 Si matériel, secret, revue ou source académique manque, indiquer ce besoin précis
 et ne jamais marquer Terminé sur une simple affirmation documentaire.
+
+## Résultats locaux du 29/10/2026
+
+- Scala : compilation, format scalafmt, 22 tests et exécution du Main réussis.
+- Connectivité : 14 tests réussis (11 simulation, 3 JSON Schema).
+- Mobile : npm ci réussi (853 paquets), lint sans avertissement, TypeScript et
+  4 tests Jest réussis. Format Prettier corrigé et vérifié ; bundle Metro Android généré avec succès.
+- Anemone : compilation Java 8 et 7 scripts de vérification réussis avec JAR réel ;
+  serveur de test arrêté, code 0. Voir method/design/anemone/README.md.
+- Les trois workflows YAML sont analysables ; aucun run GitHub ou Qodana attesté.
+- Les 8 copies Anemone et leurs blobs Git correspondent aux empreintes sources.
+
+Les essais initiaux en échec sont conservés dans le journal local et ne sont pas
+présentés comme des réussites. Les limites physiques et de revue restent actives.

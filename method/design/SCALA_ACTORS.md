@@ -27,7 +27,8 @@ ni Anemone, ni un service de stock persistant.
 
 Un ask Future par transmission, timeout configurable (2 s par défaut), puis
 pipeToSelf. La fermeture sur replyTo et id conserve la corrélation de chaque
-demande, même si les réponses arrivent dans le désordre. Pas d'Await ni de blocage.
+demande, même si les réponses arrivent dans le désordre. Aucun Await dans les
+acteurs ; seul le point d'entrée CLI attend la terminaison du système (10 s maximum).
 Un accusé incorrect, une absence de réponse ou une destination arrêtée deviennent
 un rejet. Les valeurs non finies, humidité hors 0–100, code vide et métadonnées
 invalides sont rejetés. Un délai ne prouve pas que le destinataire n'a rien traité :
