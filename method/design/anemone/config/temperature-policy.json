@@ -1,0 +1,15 @@
+{
+  "label": "SEUILS DE DÉMONSTRATION — paramètres pédagogiques, pas des recommandations médicales",
+  "min": 15,
+  "max": 35,
+  "step": 0.1,
+  "initial": 23,
+  "bands": [
+    {"from": 15, "power": 0},
+    {"from": 22, "power": 25},
+    {"from": 24, "power": 50},
+    {"from": 26, "power": 75},
+    {"from": 28, "power": 100}
+  ],
+  "automatic": [20, 23, 25, 27, 30, 24]
+}

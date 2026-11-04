@@ -1,0 +1,396 @@
+============================================================
+SMARTSTOCK — DÉMONSTRATION ANEMONE / DATA MATRIX
+Scénario : Deborah retire une boîte de compresses
+============================================================
+
+OBJECTIF
+--------
+Stock initial : 40 boîtes de compresses.
+
+Un retrait n'est confirmé par l'agent que si les deux
+événements suivants ont été consommés :
+
+    poids_change(compresse)
+    datamatrix_detecte(compresse)
+
+Le lecteur Data Matrix identifie le passage de la boîte.
+Le capteur de poids signale un changement de poids.
+Dans ce tutoriel, nous publions manuellement ces événements.
+Le logiciel ne contient pas de pilote de capteur physique.
+
+Résultat attendu avec les deux événements :
+
+    retrait_confirme(compresse)
+    stock(compresse,39)
+
+La diminution n'est pas calculée par JavaScript ou par le Bridge.
+Elle provient des équations et de l'exécution du véritable agent.
+
+Ce fichier est un guide humain. Ne pas coller ses titres,
+explications ou séparateurs dans le parseur Anemone.
+Copier seulement les blocs explicitement indiqués.
+
+
+============================================================
+ÉTAPE 1 — DÉMARRER ANEMONE
+============================================================
+
+Ouvrir Anemone avec le launcher historique Anemone.bat.
+On arrive sur :
+
+    The interactive blackboard
+
+Le Current store doit être vide.
+Si un ancien essai est présent, terminer/arrêter ses agents avant
+de préparer un essai propre. Le bouton Clear vide le store,
+mais ne supprime pas les définitions.
+
+Ce tutoriel décrit la GUI dont les boutons ont été identifiés
+dans les sources de cette installation. Les résultats moteur ont
+été validés headless ; les clics GUI de ce tutoriel ne constituent
+pas une nouvelle validation automatique de l'interface Anemone.
+
+Attention : le Blackboard de cette GUI n'est PAS celui du Bridge.
+Ce sont des instances distinctes, généralement dans deux JVM.
+
+
+============================================================
+ÉTAPE 2 — CRÉER L'ENSEMBLE DES QUANTITÉS
+============================================================
+
+Cliquer sur :
+
+    New Definition(s)
+
+Dans la grande zone, copier ce bloc complet :
+
+eset Stock = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40}.
+
+Cliquer : Submit.
+
+Vérifier que les définitions d'ensemble sont acceptées.
+Stock contient les 41 quantités possibles, de 0 à 40.
+
+EXPLICATION POUR LE PROF :
+"Stock est le domaine des quantités. sum q in Stock explorera
+les quantités de ce domaine, puis le get sélectionnera celle
+qui correspond à l'état réellement présent dans le Blackboard."
+
+
+============================================================
+ÉTAPE 3 — DÉFINIR pred()
+============================================================
+
+Toujours dans New Definition(s), effacer le texte saisi en haut.
+Cette modification de la zone de saisie ne retire pas Stock
+des définitions déjà enregistrées.
+
+Copier TOUT le bloc suivant, y compris eqn :
+
+eqn
+pred(1)=0.
+pred(2)=1.
+pred(3)=2.
+pred(4)=3.
+pred(5)=4.
+pred(6)=5.
+pred(7)=6.
+pred(8)=7.
+pred(9)=8.
+pred(10)=9.
+pred(11)=10.
+pred(12)=11.
+pred(13)=12.
+pred(14)=13.
+pred(15)=14.
+pred(16)=15.
+pred(17)=16.
+pred(18)=17.
+pred(19)=18.
+pred(20)=19.
+pred(21)=20.
+pred(22)=21.
+pred(23)=22.
+pred(24)=23.
+pred(25)=24.
+pred(26)=25.
+pred(27)=26.
+pred(28)=27.
+pred(29)=28.
+pred(30)=29.
+pred(31)=30.
+pred(32)=31.
+pred(33)=32.
+pred(34)=33.
+pred(35)=34.
+pred(36)=35.
+pred(37)=36.
+pred(38)=37.
+pred(39)=38.
+pred(40)=39.
+
+Cliquer : Submit.
+
+Il doit y avoir 40 équations, notamment :
+
+    pred(38) = 37
+    pred(39) = 38
+    pred(40) = 39
+
+EXPLICATION POUR LE PROF :
+"pred représente le prédécesseur d'une quantité.
+L'équation pred(40)=39 est une définition Anemone.
+Quand l'agent publie stock(compresse,pred(40)), le moteur
+simplifie ce terme avec ses équations et publie le stock 39."
+
+Limite importante : pred(0) n'est pas défini.
+Ne pas présenter cet agent comme une gestion validée du stock nul.
+
+
+============================================================
+ÉTAPE 4 — REVENIR AU BLACKBOARD
+============================================================
+
+Fermer uniquement la fenêtre des définitions.
+Revenir à The interactive blackboard.
+Les ensembles et équations restent chargés.
+
+
+============================================================
+ÉTAPE 5 — INITIALISER LE STOCK
+============================================================
+
+Dans si-term, écrire :
+
+stock(compresse,40)
+
+Multiplicity : 1
+Cliquer : Tell.
+
+Le Current store doit afficher :
+
+    stock(compresse,40) [1]
+
+[1] signifie une occurrence du TERME stock(compresse,40),
+pas une seule boîte. Le nombre de boîtes est l'argument 40.
+Ne pas ajouter plusieurs stocks ou multiplier ce terme.
+
+
+============================================================
+ÉTAPE 6 — SIMULER LE CAPTEUR DE POIDS
+============================================================
+
+Dans si-term, écrire :
+
+poids_change(compresse)
+
+Multiplicity : 1
+Cliquer : Tell.
+
+À ce stade, aucune confirmation ne doit être présente :
+l'événement poids seul ne réalise pas le retrait.
+
+
+============================================================
+ÉTAPE 7 — SIMULER LE SCAN DATA MATRIX
+============================================================
+
+Dans si-term, écrire :
+
+datamatrix_detecte(compresse)
+
+Multiplicity : 1
+Cliquer : Tell.
+
+Le Current store doit maintenant contenir, dans un ordre libre :
+
+    stock(compresse,40) [1]
+    poids_change(compresse) [1]
+    datamatrix_detecte(compresse) [1]
+
+EXPLICATION POUR LE PROF :
+"Deborah vient de retirer une boîte. Le changement de poids
+et la détection Data Matrix sont deux informations distinctes.
+Elles ont été publiées dans l'environnement partagé.
+Nous allons maintenant laisser l'agent Anemone les traiter."
+
+
+============================================================
+ÉTAPE 8 — CRÉER L'AGENT SMARTSTOCK
+============================================================
+
+Cliquer : New Autonomous Agent.
+Dans Agent to be processed, copier EXACTEMENT cette ligne :
+
+get(poids_change(compresse));get(datamatrix_detecte(compresse));tell(retrait_confirme(compresse));sum q in Stock: get(stock(compresse,q));tell(stock(compresse,pred(q)))
+
+Cliquer : Submit.
+L'agent est analysé en AST, c'est-à-dire une structure exécutable.
+Ne pas cliquer sur Run avant d'avoir montré l'état initial.
+
+La même écriture, présentée de manière lisible :
+
+get(poids_change(compresse));
+get(datamatrix_detecte(compresse));
+tell(retrait_confirme(compresse));
+sum q in Stock:
+    get(stock(compresse,q));
+    tell(stock(compresse,pred(q)))
+
+
+============================================================
+ÉTAPE 9 — EXPLIQUER CHAQUE INSTRUCTION
+============================================================
+
+1. get(poids_change(compresse))
+   Consomme une occurrence de l'événement poids s'il est présent.
+   S'il est absent, le pas n'est pas exécutable.
+
+2. get(datamatrix_detecte(compresse))
+   Consomme une occurrence de la détection Data Matrix.
+   Ce pas est exécuté seulement après le premier.
+
+3. tell(retrait_confirme(compresse))
+   Publie la confirmation après les deux consommations réussies.
+   Ce n'est pas le frontend qui décide de cette publication.
+
+4. sum q in Stock:
+   Développe les instances possibles de q dans Stock.
+   Ce n'est pas une somme arithmétique.
+
+5. get(stock(compresse,q))
+   Dans notre état initial, la branche q=40 réussit.
+   L'ancien terme stock(compresse,40) est consommé.
+
+6. tell(stock(compresse,pred(q)))
+   La continuation contient alors pred(40).
+   Le moteur applique pred(40)=39 et ajoute stock(compresse,39).
+
+
+============================================================
+ÉTAPE 10 — EXÉCUTER DEVANT LE PROFESSEUR
+============================================================
+
+Cliquer : Run pour toute l'exécution.
+Ou utiliser Next dans la GUI Anemone pour un seul pas.
+Le bouton équivalent du Visualizer s'appelle PAS À PAS.
+
+Les six pas du scénario nominal observés dans le vrai moteur :
+
+PAS 1 : poids consommé.
+PAS 2 : Data Matrix consommé.
+PAS 3 : retrait_confirme(compresse) publié.
+PAS 4 : sum développé en choix sur Stock.
+PAS 5 : stock(compresse,40) consommé ; agent restant :
+        tell(stock(compresse,pred(40)))
+PAS 6 : stock(compresse,39) publié ; agent terminé.
+
+Entre les pas 5 et 6, aucun terme stock n'est présent.
+Ce passage intermédiaire est normal pour cet agent séquentiel.
+L'ordre visuel des termes dans le store n'a pas d'importance.
+
+APRÈS :
+
+    retrait_confirme(compresse) [1]
+    stock(compresse,39) [1]
+
+Les événements des deux capteurs ont disparu : ils sont consommés.
+Une indication cochée dans le Visualizer est une observation
+historique ; elle ne prétend pas que le terme est encore présent.
+
+
+============================================================
+ÉTAPE 11 — ENCHAÎNER 39 VERS 38
+============================================================
+
+Ne pas réintroduire stock(compresse,40).
+Conserver stock(compresse,39), produit par la première exécution.
+
+Publier une nouvelle occurrence de chaque événement avec Tell :
+
+    poids_change(compresse)
+    datamatrix_detecte(compresse)
+
+L'agent précédent est terminé. Dans la GUI, soumettre de nouveau
+le même texte avec Submit pour obtenir un nouvel AST, puis Run.
+Le Bridge crée lui-même un nouvel AST pour un nouveau retrait.
+
+Résultat attendu, également validé sur un même Blackboard :
+
+    retrait_confirme(compresse) [2]
+    stock(compresse,38) [1]
+
+Les deux confirmations ont le même terme : leur multiplicité
+devient 2. Ne pas les consommer pour masquer cette accumulation.
+
+
+============================================================
+TESTS À SAVOIR MONTRER
+============================================================
+
+Préparer chaque test isolé avec un store vide, Stock/pred chargés,
+stock(compresse,40) [1] et un nouvel AST du même agent.
+
+TEST A — POIDS SEUL
+Publier poids_change(compresse), puis exécuter.
+Résultat : stock 40 inchangé, aucune confirmation.
+Attention : le poids est déjà consommé. L'agent reste sur
+get(datamatrix_detecte(compresse)) suivi de la suite.
+
+TEST B — DATA MATRIX SEUL
+Publier datamatrix_detecte(compresse), puis exécuter.
+Résultat : stock 40 inchangé, aucune confirmation ; le Data Matrix
+reste présent car le premier get(poids_change(...)) échoue.
+
+TEST C — DEUX ÉVÉNEMENTS
+Publier les deux événements avant Run.
+Résultat : confirmation et stock 39.
+
+TEST D — DATA MATRIX TARDIF
+Après le blocage du test A, publier le Data Matrix.
+Reprendre LE MÊME agent restant, sans Submit dans la GUI.
+Run continue et produit la confirmation puis le stock 39.
+Dans le Bridge : DATA MATRIX puis RUN conserve aussi la continuation.
+
+Ce comportement est séquentiel, pas atomique.
+Le get manquant retourne false au moteur : il n'installe pas
+une attente automatique en arrière-plan. RUN doit être repris.
+Aucune correction silencieuse de ce comportement n'a été faite.
+Les événements ne portent pas d'identifiant de transaction ou
+d'horodatage capteur. Ce scénario ne prouve donc pas que deux
+événements quelconques correspondent physiquement à la même boîte.
+
+
+============================================================
+PHRASE DE CONCLUSION
+============================================================
+
+"Le Blackboard porte les événements et le stock.
+L'agent Anemone consomme les deux événements, confirme le retrait,
+sélectionne la quantité présente et résout son prédécesseur.
+Le navigateur illustre les résultats ; le moteur les produit."
+
+
+============================================================
+INTÉGRATION SMARTSTOCK VISUALIZER
+============================================================
+
+Fichiers exécutables séparés de ce tutoriel :
+    anemone-scenarios/connected/definitions.anemone
+    anemone-scenarios/connected/withdrawal.anemone
+
+Le Bridge Java charge ces textes avec AnimBachSimulParser,
+appelle addDecls/addEqns et possède un ABBlackboard persistant.
+CAPTEUR POIDS et DATA MATRIX publient les vrais événements via tell.
+RUN et PAS À PAS appellent ABSimulExec.run_one sur le vrai AST.
+Le moteur réalise les consommations et les publications métier.
+
+Le Bridge lit le store réel, le convertit en JSON et transmet
+des snapshots HTTP/SSE à AnemoneDataSource. Aucun nouveau stock
+n'est calculé par le contrôleur du mode réel.
+
+SYSTÈME > Diagnostic moteur montre l'origine réelle des classes,
+les appels run_one, le dernier AST et les définitions chargées.
+Le MODE DEMO est une simulation locale séparée, pas une preuve Anemone.
+RESET du Visualizer recrée explicitement une session à 40.
+Arrêter la JVM perd l'état en mémoire : aucune sauvegarde disque.

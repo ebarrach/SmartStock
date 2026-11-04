@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SmartStock event envelope v1 (S1 transport container)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "id", "type", "src", "seq", "ts", "corr", "data"],
+  "properties": {
+    "v": {"const": 1, "type": "integer"},
+    "id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"},
+    "type": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "src": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "seq": {"type": "integer", "minimum": 0},
+    "ts": {"type": "string", "format": "date-time", "pattern": "(Z|\\+00:00)$"},
+    "corr": {"type": ["string", "null"], "format": "uuid"},
+    "data": {"type": "object"}
+  }
+}
