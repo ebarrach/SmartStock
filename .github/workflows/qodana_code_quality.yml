@@ -2,6 +2,10 @@ name: Qodana
 
 on:
   workflow_dispatch:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop, main]
 
 jobs:
   qodana:
@@ -22,7 +26,7 @@ jobs:
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
-          pr-mode: false
+          pr-mode: ${{ github.event_name == 'pull_request' }}
           use-caches: true
           post-pr-comment: true
           use-annotations: true

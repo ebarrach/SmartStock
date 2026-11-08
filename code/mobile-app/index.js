@@ -1,9 +1,13 @@
-/**
- * @format
- */
-
+import React from 'react';
 import { AppRegistry } from 'react-native';
 import App from './App';
-import { name as appName } from './app.json';
+import { name as appName, apiBaseUrl } from './app.json';
+import { ApiStockRepository, demoRepository } from './src/data/repository';
 
-AppRegistry.registerComponent(appName, () => App);
+const repository = apiBaseUrl
+  ? new ApiStockRepository(apiBaseUrl)
+  : demoRepository;
+function SmartStockRoot() {
+  return React.createElement(App, { repository });
+}
+AppRegistry.registerComponent(appName, () => SmartStockRoot);

@@ -1,0 +1,45 @@
+{
+  "executionStatus": "NOT_EXECUTED_ON_PHYSICAL_PROTOTYPE",
+  "preconditions": [
+    "Confirm controller/sensor references and electrical compatibility",
+    "Measure tare and known masses using calibration.py",
+    "Confirm DataMatrix reader and network/TLS/GATT configuration"
+  ],
+  "cases": [
+    {
+      "name": "nominal withdrawal",
+      "steps": [
+        "Register actual batch and unit mass",
+        "Record initial stock",
+        "Scan DataMatrix and remove one unit",
+        "Read stock and movement history from phone"
+      ],
+      "expected": "quantity decreases once; one correlated movement"
+    },
+    {
+      "name": "isolated event",
+      "steps": [
+        "Inject weight only",
+        "Wait beyond correlation window"
+      ],
+      "expected": "no confirmed movement"
+    },
+    {
+      "name": "duplicate/reconnect",
+      "steps": [
+        "Disconnect Wi-Fi during event send",
+        "Restore link and replay same IDs"
+      ],
+      "expected": "no loss of unacknowledged event; one business effect"
+    },
+    {
+      "name": "thermal and failure",
+      "steps": [
+        "Inject configured temperatures around each boundary",
+        "Verify power from Anemone",
+        "Disconnect temperature acquisition"
+      ],
+      "expected": "document hysteresis and physical fan output; explicit sensor failure"
+    }
+  ]
+}
