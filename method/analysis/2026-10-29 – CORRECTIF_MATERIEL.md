@@ -68,3 +68,29 @@ Critères de validation physique : inventorier références/photos, mesurer les
 rails et courants sous charge, tester chaque capteur, lire un DataMatrix réel,
 vérifier la fixation et le chemin de ventilation. Sans matériel ni mesures,
 les tâches de vérification matérielle restent partielles ou bloquées.
+
+## État exploitable pour le développement
+
+CONFIRMÉ désigne une décision ou une présence documentaire, pas une mesure.
+PRÉVU désigne une fonction à intégrer. RÉFÉRENCE EXACTE À CONFIRMER porte sur la
+pièce commerciale. À TESTER PHYSIQUEMENT reste une étape séparée.
+
+| Élément / interface | Décision et disponibilité documentaire | Référence | Validation réelle |
+|---|---|---|---|
+| Pi3ModelB, Wi-Fi/BLE, micro-USB | CONFIRMÉ : cible actuelle | CONFIRMÉ : Pi3ModelB | À TESTER PHYSIQUEMENT |
+| Phidget VINT + InterfaceKit, USB vers Pi | CONFIRMÉ : inventaire19/10 | RÉFÉRENCE EXACTE À CONFIRMER pour chaque canal/capteur | À TESTER PHYSIQUEMENT |
+| Arduino, liaison série USB | CONFIRMÉ : contrôleur inventorié | RÉFÉRENCE EXACTE À CONFIRMER (1010 ambigu) | À TESTER PHYSIQUEMENT |
+| Poids/force + IR sur Arduino | PRÉVU : acquisition sans fusion ; trames horodatées vers Pi | RÉFÉRENCE EXACTE À CONFIRMER | À TESTER PHYSIQUEMENT |
+| Température/humidité sur Phidget | CONFIRMÉ : capteurs inventoriés, affectation PRÉVUE | RÉFÉRENCE EXACTE À CONFIRMER | À TESTER PHYSIQUEMENT |
+| DataMatrix, caméra/lecteur vers gateway | CONFIRMÉ : technologie ; lecteur PRÉVU | RÉFÉRENCE EXACTE À CONFIRMER | À TESTER PHYSIQUEMENT |
+| Ventilation, commande graduée | PRÉVU : consigne0–100 du moteur, driver indépendant | RÉFÉRENCE EXACTE À CONFIRMER | À TESTER PHYSIQUEMENT |
+| Sac : contrôleur BLE et batterie | PRÉVU : périphérique GATT ; application/Pi centraux | RÉFÉRENCE EXACTE À CONFIRMER | À TESTER PHYSIQUEMENT |
+
+Montage logique : cartes d’acquisition → événements indépendants → gateway Pi →
+agent Scala → services/moteur Anemone → état/API → application ; les commandes
+ventilateur reviennent vers un driver, jamais directement vers un moteur GPIO.
+En déplacement, le sac conserve ses observations jusqu’à acquittement ; BLE et
+reprise réelle sont à valider. Masse, isolement, courants et connecteurs doivent
+être arrêtés sur les fiches des pièces avant câblage. Le schéma logique et le
+logiciel peuvent avancer sans ces mesures. SS005.2 : validation documentaire
+faite, VALIDATION PHYSIQUE À EFFECTUER.

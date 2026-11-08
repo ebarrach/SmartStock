@@ -1,26 +1,4 @@
 # SmartStock
-
-> **État vérifié au 29/10/2026 : socles et simulations du Jalon 1.**
-> Raspberry Pi 3 Model B ; DataMatrix ; agent Scala/Akka intermédiaire.
-> Les fonctionnalités listées plus bas décrivent les objectifs du produit,
-> pas des fonctionnalités toutes implémentées. Wi-Fi/BLE et matériel ne sont
-> pas validés physiquement. Les deux démonstrations Anemone ont été exécutées
-> avec le moteur réel : voir [modèles et preuves](method/design/anemone/README.md).
->
-> [Audit et décisions S1](method/analysis/2026-10-29%20–%20JALON_1_CADRAGE.md) ·
-> [Critères MVP](method/analysis/2026-10-29%20–%20MVP_ACCEPTANCE.md) ·
-> [Matrice de tests](method/analysis/2026-10-29%20–%20QUALITY_MATRIX.md)
->
-> Scala : JDK 21, `cd code/smartstock-agent`, puis `sbt compile`,
-> `sbt scalafmtCheckAll`, `sbt test`, `sbt run` (simulation avec arrêt automatique).
-> Sélectionner JAVA_HOME sur JDK 21 si la machine utilise Java 8 par défaut.
-> Mobile : `cd code/mobile-app`, `npm ci`, puis les commandes de son README.
-> Simulation connectivité depuis la racine :
-> `python -m pip install -r code/connectivity/requirements-test.txt`, puis
-> `python -m unittest discover -s code/connectivity -v`.
-> Les guides PDF historiques sont encore des fichiers vides ; les Markdown datés
-> constituent les livrables de cadrage utilisables.
-
 Smart Medication Cabinet
 ------------------------------------------------------------
 📘 Official Documentation
@@ -28,11 +6,14 @@ Smart Medication Cabinet
 
 The project includes official documentation available in the `/doc/` directory:
 
-- 📙 **User Guide**  
-  `doc/UserGuide/PDF/UserGuide.pdf`
+- 📙 **User Guide**
+  [doc/UserGuide/PDF/UserGuide.pdf](doc/UserGuide/PDF/UserGuide.pdf)
 
-- 🛠️ **Programmer Guide**  
-  `doc/ProgrammerGuide/PDF/ProgrammerGuide.pdf`
+- 🛠️ **Programmer Guide**
+  [doc/ProgrammerGuide/PDF/ProgrammerGuide.pdf](doc/ProgrammerGuide/PDF/ProgrammerGuide.pdf)
+
+The official guides will be written and maintained by the team in LaTeX.
+For local startup and test commands, see [Quick start](method/DEMARRAGE.md).
 
 ------------------------------------------------------------
 📌 Project Description
@@ -74,6 +55,36 @@ Main features include:
 - Keep information updated after each operation.
 - Preserve stored data after the application is restarted.
 
+The ecosystem also includes an **emergency bag**, connected over **Bluetooth/BLE**,
+while the cabinet uses **Wi-Fi**. The current embedded reference is the
+**Raspberry Pi 3 Model B**. DataMatrix is the current identification technology;
+older NFC or Raspberry Pi 4 references in historical documents do not define the
+current architecture.
+
+### Current implementation
+
+The feature list above describes the product scope. The software foundation
+currently provides a persistent product and batch inventory, stock movements,
+environmental readings, alerts and an HTTP API. DataMatrix and weight events are
+correlated using a shared operation identifier; commands and retries are
+deduplicated to avoid recording the same movement twice.
+
+The real **Anemone engine** participates in automatic withdrawal confirmation
+and temperature-based fan decisions, including hysteresis. The tested withdrawal
+scenario is:
+
+```text
+weight change + DataMatrix detection
+→ Anemone withdrawal confirmation
+→ stock 40 → 39
+→ one persisted stock movement
+```
+
+The mobile application supports both explicitly simulated data and the real API.
+Physical sensor drivers, calibration, fan actuation, BLE and native-device
+acceptance still require validation on the actual equipment. Software tests do
+not constitute proof of physical integration.
+
 ------------------------------------------------------------
 🧱 Code Content
 ------------------------------------------------------------
@@ -82,20 +93,43 @@ Main features include:
 
 The project is divided into several components:
 
-- **Mobile Application:**  
-  `code/mobile-app/`  
+- **Mobile Application:**
+  [code/mobile-app/](code/mobile-app/)
   React Native / TypeScript application used to access SmartStock information,
-  medication inventory, alerts and cabinet status.
+  medication inventory, alerts and cabinet status. A repository abstraction
+  allows the same screens to use mock data or the HTTP API.
 
-- **SmartStock Agent:**  
-  `code/smartstock-agent/`  
+- **SmartStock Agent:**
+  [code/smartstock-agent/](code/smartstock-agent/)
   Scala-based intelligent system responsible for processing events,
   coordinating SmartStock logic and communication between components.
+  The Scala/Akka agent remains an event intermediary, with separate components
+  for correlation, inventory persistence, API transport and Anemone integration.
 
-- **Shared API:**  
-  `code/shared/api/openapi.yaml`  
+- **Shared API:**
+  [code/shared/api/openapi.yaml](code/shared/api/openapi.yaml)
   OpenAPI specification defining communication interfaces between
-  SmartStock components.
+  SmartStock components. Shared examples are in `code/shared/api/examples/`,
+  and versioned event contracts are in `code/shared/events/`.
+
+- **Anemone Bridge:**
+  [code/anemone-bridge/](code/anemone-bridge/)
+  Reuses the existing Visualizer bridge and sessions to communicate with the
+  real external Anemone engine. It contains the canonical stock and thermal
+  models; it does not replace Anemone with a simulated Scala engine.
+
+- **Raspberry Pi Gateway:**
+  [code/gateway/](code/gateway/)
+  Event emitter with a durable SQLite outbox, stable identifiers, replay support,
+  calibration tooling and a prepared systemd service definition.
+
+- **Connectivity and Tools:**
+  `code/connectivity/` and `code/tools/`
+  Protocol and contract checks and integration smoke tests.
+
+The historical Visualizer remains under
+`method/implementation/SmartStock-Visualizer/`. Its interface and demonstrations
+are preserved; reusable product components converge under `code/`.
 
 Main technologies used in the project include:
 
@@ -108,6 +142,9 @@ Main technologies used in the project include:
 - Infrared sensors
 - Temperature and humidity sensors
 - REST / OpenAPI
+- Anemone
+- Python / SQLite
+- Wi-Fi / Bluetooth BLE
 
 ------------------------------------------------------------
 🚀 How to Run the Project
@@ -136,6 +173,63 @@ sbt compile
 sbt run
 ```
 
+To explicitly select the HTTP service entry point:
+
+```bash
+sbt "runMain smartstock.ServiceMain"
+```
+
+Alternatively, build and run the standalone JAR with a simulated initial inventory:
+
+```bash
+sbt assembly
+java -jar target/scala-2.13/smartstock-agent.jar --demo
+```
+
+`--demo` seeds an empty data store with demonstration stock. Omit it for an
+unseeded inventory. The service listens on `127.0.0.1:8081` by default:
+
+- Health: `http://127.0.0.1:8081/api/v1/health`
+- Inventory snapshot: `http://127.0.0.1:8081/api/v1/snapshot`
+
+Environment variables include:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `SMARTSTOCK_DATA` | Persistent inventory file | `data/inventory.json` |
+| `SMARTSTOCK_BIND` | Listening address | `127.0.0.1` |
+| `SMARTSTOCK_PORT` | HTTP port | `8081` |
+| `SMARTSTOCK_ANEMONE_URL` | Real Anemone bridge URL | Not configured |
+| `SMARTSTOCK_CORRELATION_MS` | DataMatrix/weight correlation window | `5000` |
+| `SMARTSTOCK_WEIGHT_TOLERANCE_GRAMS` | Weight tolerance | `0.5` |
+
+The service also accepts temperature and humidity alert limits through
+`SMARTSTOCK_TEMP_MIN`, `SMARTSTOCK_TEMP_MAX`, `SMARTSTOCK_HUMIDITY_MIN` and
+`SMARTSTOCK_HUMIDITY_MAX`.
+
+### Anemone
+
+The real Anemone JAR is an external dependency. The bridge runs with **JDK 8**
+in a separate JVM; the agent uses **JDK 21**. This separates their Scala 2.12
+and Scala 2.13 dependencies.
+
+From `code/anemone-bridge/`, in PowerShell with JDK 8 available:
+
+```powershell
+$env:ANEMONE_JAR='D:/path/to/root-assembly-0.1.0-SNAPSHOT.jar'
+./bridge/start.ps1 -Port 8092
+```
+
+Before starting the agent in its terminal:
+
+```powershell
+$env:SMARTSTOCK_ANEMONE_URL='http://127.0.0.1:8092'
+```
+
+See the [Anemone bridge instructions](code/anemone-bridge/README.md) for model
+limits, configuration and diagnostics. Automatic withdrawals require the real
+engine; its absence does not trigger a simulated replacement.
+
 ### Mobile Application
 
 The React Native application is located in:
@@ -144,7 +238,7 @@ The React Native application is located in:
 
 Requirements:
 
-- Node.js
+- Node.js 22.11 or newer
 - npm
 - React Native development environment
 
@@ -152,9 +246,18 @@ From the mobile application directory:
 
 ```bash
 cd code/mobile-app
-npm ci
+npm install
 npm start
 ```
+
+For reproducible installation using the committed lockfile, use `npm ci`.
+In a second terminal, run `npm run android` with an Android SDK and a configured
+emulator or phone. iOS development requires macOS, Xcode and CocoaPods.
+
+Set `apiBaseUrl` in `code/mobile-app/app.json` to select the HTTP repository;
+`null` keeps explicitly simulated data. The API mode refreshes every five seconds
+and reports communication errors without silently falling back to mock data.
+See the [mobile README](code/mobile-app/README.md) for device networking and setup.
 
 ### API
 
@@ -162,8 +265,67 @@ The communication contract is defined in:
 
 `code/shared/api/openapi.yaml`
 
-The API specification is planned as the common interface. The file is currently
-empty (SS-007, sprint S2). The S1 event container is in code/shared/events/.
+The API specification is used as the common interface between the different
+SmartStock software components.
+
+The OpenAPI 3.1 document uses JSON syntax, which is also valid YAML. The HTTP
+service exposes products, stock, movements, readings, alerts and snapshots under
+`/api/v1/`. Write requests use stable command identifiers for idempotency;
+event messages follow the shared versioned envelope.
+
+### Raspberry Pi Gateway
+
+The deployment target is the **Raspberry Pi 3 Model B**. Build the agent JAR on
+the development workstation and follow the
+[gateway instructions](code/gateway/README.md) for event emission, durable replay,
+service configuration and physical acceptance checks.
+
+------------------------------------------------------------
+🧪 Tests and Validation
+------------------------------------------------------------
+
+From `code/smartstock-agent/`:
+
+```bash
+sbt scalafmtCheckAll
+sbt test
+sbt assembly
+```
+
+Set `SMARTSTOCK_ANEMONE_URL` to run the engine integration tests against the
+real bridge. Without it, those tests are explicitly canceled rather than
+replaced by simulations.
+
+From the repository root:
+
+```bash
+python -m pip install -r code/connectivity/requirements-test.txt
+python -m unittest discover -s code/connectivity -v
+python -m unittest discover -s code/gateway -v
+```
+
+`SMARTSTOCK_API_URL` enables contract checks against a running agent.
+`code/tools/integration_smoke.py` exercises the real HTTP/Anemone pipeline
+against an explicitly simulated dataset.
+
+From `code/mobile-app/`:
+
+```bash
+npm run format:check
+npm run lint -- --max-warnings 0
+npm run typecheck
+npm test -- --runInBand
+```
+
+The historical Visualizer retains its seven separate regression scripts.
+Native Android/iOS builds, BLE, physical measurements and hardware operation
+must be verified on their respective platforms.
+
+Useful technical references:
+
+- [MVP acceptance criteria](method/analysis/2026-10-29%20–%20MVP_ACCEPTANCE.md)
+- [Current hardware interfaces](method/analysis/2026-10-29%20–%20CORRECTIF_MATERIEL.md)
+- [Scala/Akka architecture and concepts](method/design/SCALA_ACTORS.md)
 
 ------------------------------------------------------------
 👩‍💻 Academic Context
@@ -183,6 +345,8 @@ Authors:
 - Jonathan KONDOLI NKEBI
 - Pablo ROJAS LOPEZ
 - Ana TELLERIA RODRIGUEZ
+
+The final defense is planned for **January 2027**, with the exact date to be confirmed.
 
 ------------------------------------------------------------
 📄 License

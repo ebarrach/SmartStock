@@ -1,4 +1,5 @@
 {
   "name": "SmartStockMobile",
-  "displayName": "SmartStockMobile"
+  "displayName": "SmartStockMobile",
+  "apiBaseUrl": null
 }

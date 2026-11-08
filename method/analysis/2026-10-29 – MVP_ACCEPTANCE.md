@@ -29,14 +29,13 @@ La simulation Scala de lot 40 → 39 ne remplace pas le modèle Anemone attendu 
 L'autre scénario représente les niveaux thermiques et la puissance du ventilateur.
 Le Visualizer reçu pendant l'audit fournit ces modèles et un pont vers le JAR
 réel. Les sept scripts ont été exécutés avec succès ; modèles/procédures conservés
-sous `method/design/anemone`, avec empreintes et méthode de reproduction. Les
-sources du pont restent dans le dépôt imbriqué utilisateur, sans import global.
+sous `code/anemone-bridge`, avec empreintes et méthode de reproduction. Le pont
+réutilisable y est extrait ; l’interface historique reste dans le Visualizer.
+Le service persistant utilise ces modèles via HTTP ; voir `method/DEMARRAGE.md`.
 La démonstration a des entrées injectées : aucune lecture physique n'est prouvée.
 
-## Critère de fin du cadrage
+## Utilisation
 
-Le périmètre et ces méthodes de vérification peuvent être revus sans avoir
-implémenté tout le MVP. L'ancienne Definition of Done de SS-001.2 demandait aussi
-une représentation Anemone et un lien dans ClickUp : la première est maintenant
-prouvée, mais le lien reste à joindre manuellement. Ce dernier empêche un OUI
-inconditionnel pour cette sous-tâche.
+Ces critères sont la référence des tests et de la recette. Les liens ClickUp et
+revues constituent des actions humaines administratives distinctes de la
+validation technique ; leur attente n’empêche pas le développement.

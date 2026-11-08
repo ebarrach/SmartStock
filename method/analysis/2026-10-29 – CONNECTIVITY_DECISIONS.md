@@ -64,3 +64,8 @@ formats et rejet de métadonnées invalides. Installer requirements-test.txt ava
 la suite. Le même contrôle est configuré en CI.
 Essais physiques : démarrage Pi, lecture de chaque carte, HTTPS local sans internet,
 BLE de chaque central, coupures Wi-Fi/BLE/électriques, reconnexion et ordre.
+
+Inventaire logiciel actuel : Scala2.13/Akka2.6 sous JDK21, bridge Anemone Scala2.12
+dans JVM séparée, HTTP local derrière terminaison TLS sur Pi, SQLite outbox
+côté acquisition. Services systemd et simulateur sous code/gateway. Le Pi physique
+reste à tester ; ceci ne bloque pas les contrats ni les tests logiciels.

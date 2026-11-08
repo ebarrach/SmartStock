@@ -52,6 +52,10 @@ SmartStock/
                 test/
                     scala/
     doc/
+        Connectivity/
+            SmartStock_Raspberry_Connectivite.md
+            SmartStock_Raspberry_Connectivite_Enveloppe_Evenements.md
+            SmartStock_Raspberry_Connectivite_Reconnexion_File_Locale.md
         ProgrammerGuide/
             PDF/
                 ProgrammerGuide.pdf
@@ -68,10 +72,17 @@ SmartStock/
         exemple.txt
     method/
         analysis/
+            2026-10-10 – MVP_CHECKLIST.md
+            2026-10-18 – SCALA_REQUIREMENTS.md
+            2026-10-19 – inventaire_materiel.md
+            2026-10-19 – testing-strategy.md
             Charter/
                 2025-00-00 – Title - Purpose.txt
             Meeting/
                 2025-00-00 – Title - Purpose.txt
+            Mounting Specification.pdf
+            Power & Compatibility Analysis.pdf
+            SmartStock_Piles_Avec_Sac - Vue complète - Wi-Fi et sac BLE.pdf
             Step Charter/
                 2025-00-00 – Title - Purpose.txt
         design/

@@ -23,3 +23,13 @@ maquettes interactives. Données explicitement simulées ; pas de Wi-Fi/BLE ni d
 modification de stock réel. Les boutons de simulation exposent les états vide,
 chargement et déconnexion pour revue. Parcours/critères :
 `method/design/MOBILE_PARCOURS.md` depuis la racine du dépôt.
+
+## API réelle
+
+Renseigner apiBaseUrl dans app.json pour choisir ApiStockRepository au lancement
+(null conserve le mock). En émulateur Android, le poste hôte est normalement
+10.0.2.2 ; sur téléphone, utiliser l’URL HTTPS du Pi sur le réseau local.
+Le même Snapshot est défini dans le contrat partagé ; erreurs et données invalides
+ne déclenchent jamais de repli vers le mock. Le mode API actualise toutes les5s
+et le bouton Actualiser permet une demande explicite. Le détail sélectionné reste
+lié au snapshot courant. Build natif et radios doivent être vérifiés sur appareil.

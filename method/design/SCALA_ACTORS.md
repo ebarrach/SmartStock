@@ -56,3 +56,46 @@ persistées dans ce socle. La file SQLite est une simulation séparée du transp
 Tests : EventRouterSpec, SensorAndWithdrawalSpec et deux suites reprises.
 La simulation 40 → 39 teste un retrait explicite de lot et son historique ; elle
 ne prouve pas la corrélation DataMatrix/poids de bout en bout ni Anemone.
+
+## Service produit : HTTP, stockage et Anemone
+
+```mermaid
+flowchart LR
+    Gateway[Gateway : JSONL / outbox SQLite] --> API[ApiServer : HTTP v1]
+    Mobile[Mobile : StockRepository] --> API
+    API --> Inputs[StockInputs : inbox et corrélation]
+    Inputs --> Inventory[InventoryActor : commandes et persistance]
+    API --> Inventory
+    Inputs --> Bridge[Bridge : vrai Anemone Scala 2.12 / JDK 8]
+    API --> Thermal[AnemoneThermal : session sérialisée]
+    Thermal --> Bridge
+    Inventory --> Rules[InventoryRules : règles immuables]
+    Inventory --> Disk[inventory.json : remplacement atomique]
+```
+
+`ServiceMain` est le serveur persistant ; `Main` conserve la démonstration S1.
+`InventoryActor` sérialise les commandes ; ses écritures s’exécutent sur le
+dispatcher de stockage dédié. `ApiServer` utilise des asks asynchrones. Une erreur
+d’écriture ne publie pas le nouvel état. Les commandes UUID sont idempotentes.
+
+`StockInputs` journalise les observations avant acquittement, reconstruit les
+couples après redémarrage et utilise Anemone pour confirmer les retraits. Le
+mouvement vérifie le stock attendu avant écriture ; une modification concurrente
+est refusée. Les ajouts et corrections passent par les règles de stock séparées.
+`AnemoneThermal` sérialise la session thermique et lit la puissance décidée par
+le vrai moteur. Les unités et limites des modèles sont dans le README du bridge.
+
+| Concept | Preuve dans le service produit |
+| --- | --- |
+| case classes / traits | InventoryOperation, Product, Batch, InventoryActor.Command |
+| immutabilité / pattern matching | InventoryRules.execute et Correlator |
+| Option / Either | expectedBefore, recherche des lots, DomainError et validation |
+| for-comprehension / Future | AnemoneThermal.evaluate, appels HTTP asynchrones AnemoneClient |
+| acteurs | InventoryActor : protocole typé, sérialisation et lecture de l’état |
+| concurrence | ConcurrentApiSpec : écritures distinctes, réémissions et dernier article |
+| reprise / erreurs | InventorySpec, StockInputsSpec, ApiSpec |
+| vrai moteur | AnemoneIntegrationSpec et StockInputsSpec avec SMARTSTOCK_ANEMONE_URL |
+
+Commandes de lancement et tests : [démarrage local](../DEMARRAGE.md).
+Les simulations S1 restent distinctes de ce service ; aucun test local ne valide
+le câblage, la calibration, le BLE ou les actionneurs physiques.
