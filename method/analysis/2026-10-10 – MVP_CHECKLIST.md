@@ -1,5 +1,10 @@
 # SmartStock — MVP Checklist
 
+> Décision du 10/11/2026 : SmartStock Classic utilise son moteur Scala/Akka
+> autonome. La section Anémone est conservée comme cadrage historique ; les
+> critères de stock et ventilation sont vérifiés par les tests API locaux.
+> Les essais physiques restent distincts des tests logiciels.
+
 > Correctif du 29/10/2026 : les anciennes cases cochées ne disposaient pas de
 > preuves suffisantes. Elles sont remises à vérifier. Critères observables :
 > `2026-10-29 – MVP_ACCEPTANCE.md`. Historique conservé dans Git.

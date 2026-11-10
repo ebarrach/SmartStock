@@ -10,7 +10,7 @@ assembly / assemblyMergeStrategy := {
   case "module-info.class" => MergeStrategy.discard
   case path => (assembly / assemblyMergeStrategy).value(path)
 }
-Compile / mainClass := Some("smartstock.Main")
+Compile / mainClass := Some("smartstock.ServiceMain")
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor-typed" % "2.6.20",
   "io.spray" %% "spray-json" % "1.3.6",

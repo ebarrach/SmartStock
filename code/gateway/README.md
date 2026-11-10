@@ -3,7 +3,7 @@
 Préparer Raspberry Pi OS 64 bits compatible avec le Pi3, Python3 et un JDK21 ARM64
 vérifié sur la machine. Construire l'agent sur le poste de développement avec
 `sbt assembly`, puis transférer le JAR ; ne pas exécuter sbt sur le Pi1Go.
-Le bridge Anemone conserve son JDK8 séparé et le JAR externe de l'équipe.
+Le JAR Scala/Akka autonome traite le stock et la ventilation, sans bridge externe.
 
 L'unité systemd fournie suppose `/opt/smartstock`, `/opt/java21/bin/java` et un
 utilisateur smartstock. Adapter ces chemins, installer explicitement l'unité et
@@ -33,4 +33,4 @@ capteurs et ne calcule pas le stock. Les identifiants sont conservés lors des
 retries, les événements non acquittés restent dans SQLite. Les drivers réels
 alimenteront cette même frontière ; références matérielles et calibration restent
 à fournir. `python -m unittest discover -s code/gateway -v` vérifie le redémarrage
-du compteur et la saturation sans perte. Les 14 tests connectivity restent requis.
+du compteur et la saturation sans perte. Les tests de contrat et de connectivité restent requis.

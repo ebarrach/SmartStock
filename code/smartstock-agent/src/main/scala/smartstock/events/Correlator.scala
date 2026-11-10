@@ -31,7 +31,7 @@ final case class CorrelationState(
     seen: Map[UUID, (SensorInput, Long)] = Map.empty
 )
 
-/** Correlates observations only; a candidate is not an Anemone/business confirmation. */
+/** Correlates observations only; a candidate is not a committed stock movement. */
 final class Correlator(windowMillis: Long = 5000, toleranceGrams: Double = 0.5) {
   require(windowMillis > 0 && toleranceGrams.isFinite && toleranceGrams >= 0)
   def accept(

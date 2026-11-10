@@ -4,8 +4,6 @@ import akka.actor.typed.{ActorSystem, DispatcherSelector}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.util.Timeout
-import smartstock.anemone.{AnemoneClient, AnemoneThermal}
-import java.net.URI
 import smartstock.api.ApiServer
 import smartstock.inventory._
 import java.nio.file.Paths
@@ -56,22 +54,19 @@ object ServiceMain {
     implicit val timeout: Timeout = Timeout(5.seconds)
     try Await.result(inventory.ask[Inventory](InventoryActor.Get.apply), 5.seconds)
     catch { case error: Exception => system.terminate(); throw error }
-    val bridge =
-      sys.env.get("SMARTSTOCK_ANEMONE_URL").map(url => new AnemoneClient(URI.create(url)))
     val server = new ApiServer(
       inventory,
       sys.env.getOrElse("SMARTSTOCK_BIND", "127.0.0.1"),
       port,
       demo,
       Clock.systemUTC(),
-      bridge.map(new AnemoneThermal(_)),
-      Some(new smartstock.events.StockInputs(inventory, bridge, windowMillis, toleranceGrams)),
+      Some(new smartstock.events.StockInputs(inventory, windowMillis, toleranceGrams)),
       limits
     )
     server.start()
     println(s"SmartStock API http://127.0.0.1:${server.port}/api/v1/health (simulation=$demo)")
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
-      server.close(); bridge.foreach(_.close()); system.terminate()
+      server.close(); system.terminate()
     }))
     Await.ready(system.whenTerminated, Duration.Inf)
   }
