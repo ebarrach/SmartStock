@@ -69,13 +69,13 @@ environmental readings, alerts and an HTTP API. DataMatrix and weight events are
 correlated using a shared operation identifier; commands and retries are
 deduplicated to avoid recording the same movement twice.
 
-The real **Anemone engine** participates in automatic withdrawal confirmation
-and temperature-based fan decisions, including hysteresis. The tested withdrawal
+The autonomous **Scala/Akka engine** confirms stock operations and computes
+temperature-based fan decisions, including hysteresis. The tested withdrawal
 scenario is:
 
 ```text
 weight change + DataMatrix detection
-→ Anemone withdrawal confirmation
+→ Scala stock validation
 → stock 40 → 39
 → one persisted stock movement
 ```
@@ -104,19 +104,13 @@ The project is divided into several components:
   Scala-based intelligent system responsible for processing events,
   coordinating SmartStock logic and communication between components.
   The Scala/Akka agent remains an event intermediary, with separate components
-  for correlation, inventory persistence, API transport and Anemone integration.
+  for correlation, inventory persistence, API transport and thermal decisions.
 
 - **Shared API:**
   [code/shared/api/openapi.yaml](code/shared/api/openapi.yaml)
   OpenAPI specification defining communication interfaces between
   SmartStock components. Shared examples are in `code/shared/api/examples/`,
   and versioned event contracts are in `code/shared/events/`.
-
-- **Anemone Bridge:**
-  [code/anemone-bridge/](code/anemone-bridge/)
-  Reuses the existing Visualizer bridge and sessions to communicate with the
-  real external Anemone engine. It contains the canonical stock and thermal
-  models; it does not replace Anemone with a simulated Scala engine.
 
 - **Raspberry Pi Gateway:**
   [code/gateway/](code/gateway/)
@@ -126,10 +120,6 @@ The project is divided into several components:
 - **Connectivity and Tools:**
   `code/connectivity/` and `code/tools/`
   Protocol and contract checks and integration smoke tests.
-
-The historical Visualizer remains under
-`method/implementation/SmartStock-Visualizer/`. Its interface and demonstrations
-are preserved; reusable product components converge under `code/`.
 
 Main technologies used in the project include:
 
@@ -142,7 +132,6 @@ Main technologies used in the project include:
 - Infrared sensors
 - Temperature and humidity sensors
 - REST / OpenAPI
-- Anemone
 - Python / SQLite
 - Wi-Fi / Bluetooth BLE
 
@@ -199,36 +188,12 @@ Environment variables include:
 | `SMARTSTOCK_DATA` | Persistent inventory file | `data/inventory.json` |
 | `SMARTSTOCK_BIND` | Listening address | `127.0.0.1` |
 | `SMARTSTOCK_PORT` | HTTP port | `8081` |
-| `SMARTSTOCK_ANEMONE_URL` | Real Anemone bridge URL | Not configured |
 | `SMARTSTOCK_CORRELATION_MS` | DataMatrix/weight correlation window | `5000` |
 | `SMARTSTOCK_WEIGHT_TOLERANCE_GRAMS` | Weight tolerance | `0.5` |
 
 The service also accepts temperature and humidity alert limits through
 `SMARTSTOCK_TEMP_MIN`, `SMARTSTOCK_TEMP_MAX`, `SMARTSTOCK_HUMIDITY_MIN` and
 `SMARTSTOCK_HUMIDITY_MAX`.
-
-### Anemone
-
-The real Anemone JAR is an external dependency. The bridge runs with **JDK 8**
-in a separate JVM; the agent uses **JDK 21**. This separates their Scala 2.12
-and Scala 2.13 dependencies.
-
-From `code/anemone-bridge/`, in PowerShell with JDK 8 available:
-
-```powershell
-$env:ANEMONE_JAR='D:/path/to/root-assembly-0.1.0-SNAPSHOT.jar'
-./bridge/start.ps1 -Port 8092
-```
-
-Before starting the agent in its terminal:
-
-```powershell
-$env:SMARTSTOCK_ANEMONE_URL='http://127.0.0.1:8092'
-```
-
-See the [Anemone bridge instructions](code/anemone-bridge/README.md) for model
-limits, configuration and diagnostics. Automatic withdrawals require the real
-engine; its absence does not trigger a simulated replacement.
 
 ### Mobile Application
 
@@ -292,9 +257,9 @@ sbt test
 sbt assembly
 ```
 
-Set `SMARTSTOCK_ANEMONE_URL` to run the engine integration tests against the
-real bridge. Without it, those tests are explicitly canceled rather than
-replaced by simulations.
+The integration tests exercise the local Scala/Akka engine through the HTTP API,
+including stock correlation, replay, restart and fan hysteresis. No external engine
+or bridge is required.
 
 From the repository root:
 
@@ -305,7 +270,7 @@ python -m unittest discover -s code/gateway -v
 ```
 
 `SMARTSTOCK_API_URL` enables contract checks against a running agent.
-`code/tools/integration_smoke.py` exercises the real HTTP/Anemone pipeline
+`code/tools/integration_smoke.py` exercises the HTTP/Scala-Akka pipeline
 against an explicitly simulated dataset.
 
 From `code/mobile-app/`:
@@ -317,7 +282,6 @@ npm run typecheck
 npm test -- --runInBand
 ```
 
-The historical Visualizer retains its seven separate regression scripts.
 Native Android/iOS builds, BLE, physical measurements and hardware operation
 must be verified on their respective platforms.
 

@@ -21,7 +21,7 @@ destinataire, pas retrait physique confirmé ni persistance métier.
 Les acteurs de simulation repris d'Ayoub sont séparés du chemin de routage.
 BatchActor maintient lots et historique en mémoire ; les trois acteurs capteurs
 interprètent des mesures injectées. Ils ne remplacent ni les cartes d'acquisition,
-ni Anemone, ni un service de stock persistant.
+ni un service de stock persistant.
 
 ## Concurrence, erreurs et arrêt
 
@@ -55,9 +55,9 @@ persistées dans ce socle. La file SQLite est une simulation séparée du transp
 
 Tests : EventRouterSpec, SensorAndWithdrawalSpec et deux suites reprises.
 La simulation 40 → 39 teste un retrait explicite de lot et son historique ; elle
-ne prouve pas la corrélation DataMatrix/poids de bout en bout ni Anemone.
+ne prouve pas la corrélation DataMatrix/poids de bout en bout du service produit.
 
-## Service produit : HTTP, stockage et Anemone
+## Service produit : HTTP, stockage et moteur Scala/Akka autonome
 
 ```mermaid
 flowchart LR
@@ -66,9 +66,7 @@ flowchart LR
     API --> Inputs[StockInputs : inbox et corrélation]
     Inputs --> Inventory[InventoryActor : commandes et persistance]
     API --> Inventory
-    Inputs --> Bridge[Bridge : vrai Anemone Scala 2.12 / JDK 8]
-    API --> Thermal[AnemoneThermal : session sérialisée]
-    Thermal --> Bridge
+    Rules --> Thermal[ThermalPolicy : seuils et hystérésis]
     Inventory --> Rules[InventoryRules : règles immuables]
     Inventory --> Disk[inventory.json : remplacement atomique]
 ```
@@ -79,22 +77,25 @@ dispatcher de stockage dédié. `ApiServer` utilise des asks asynchrones. Une er
 d’écriture ne publie pas le nouvel état. Les commandes UUID sont idempotentes.
 
 `StockInputs` journalise les observations avant acquittement, reconstruit les
-couples après redémarrage et utilise Anemone pour confirmer les retraits. Le
+couples après redémarrage et transmet les candidats aux règles Scala. Le
 mouvement vérifie le stock attendu avant écriture ; une modification concurrente
 est refusée. Les ajouts et corrections passent par les règles de stock séparées.
-`AnemoneThermal` sérialise la session thermique et lit la puissance décidée par
-le vrai moteur. Les unités et limites des modèles sont dans le README du bridge.
+`ThermalPolicy` calcule les niveaux 0/25/50/75/100 % aux seuils 22/24/26/28 °C,
+avec une hystérésis de descente de 0,5 °C. `InventoryActor` enregistre température
+et consigne ensemble ; la dernière consigne persistée sert au calcul suivant.
+Ces seuils sont pédagogiques et ne constituent pas des recommandations médicales.
 
 | Concept | Preuve dans le service produit |
 | --- | --- |
 | case classes / traits | InventoryOperation, Product, Batch, InventoryActor.Command |
 | immutabilité / pattern matching | InventoryRules.execute et Correlator |
 | Option / Either | expectedBefore, recherche des lots, DomainError et validation |
-| for-comprehension / Future | AnemoneThermal.evaluate, appels HTTP asynchrones AnemoneClient |
+| for-comprehension / Future | StockInputs.submit, asks asynchrones et composition des validations |
 | acteurs | InventoryActor : protocole typé, sérialisation et lecture de l’état |
 | concurrence | ConcurrentApiSpec : écritures distinctes, réémissions et dernier article |
 | reprise / erreurs | InventorySpec, StockInputsSpec, ApiSpec |
-| vrai moteur | AnemoneIntegrationSpec et StockInputsSpec avec SMARTSTOCK_ANEMONE_URL |
+| moteur local | ScalaEngineApiSpec et StockInputsSpec, API réelle sans dépendance externe |
+| ventilation | ThermalPolicySpec : seuils, hystérésis et valeurs non finies |
 
 Commandes de lancement et tests : [démarrage local](../DEMARRAGE.md).
 Les simulations S1 restent distinctes de ce service ; aucun test local ne valide

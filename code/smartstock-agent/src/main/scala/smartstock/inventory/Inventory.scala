@@ -221,7 +221,18 @@ object InventoryRules {
           )(reading.value))
         )
           invalid("Mesure invalide")
-        else Right(state.copy(readings = (state.readings :+ reading).takeRight(1000)))
+        else {
+          val appended = state.readings :+ reading
+          val readings = if (reading.kind == "temperature.measured") {
+            val previous = state.readings.reverseIterator
+              .find(_.kind == "fan.changed")
+              .map(_.value)
+              .getOrElse(0.0)
+            val power = smartstock.engine.ThermalPolicy.next(reading.value, previous)
+            appended :+ Reading("fan.changed", power, "scala-engine", reading.observedAt)
+          } else appended
+          Right(state.copy(readings = readings.takeRight(1000)))
+        }
     }
     result.map { updated =>
       val receipts = updated.receipts.updated(eventId, fingerprint)

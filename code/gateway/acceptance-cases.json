@@ -36,7 +36,7 @@
       "name": "thermal and failure",
       "steps": [
         "Inject configured temperatures around each boundary",
-        "Verify power from Anemone",
+        "Verify power decided by the Scala/Akka thermal policy",
         "Disconnect temperature acquisition"
       ],
       "expected": "document hysteresis and physical fan output; explicit sensor failure"

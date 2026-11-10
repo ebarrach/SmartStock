@@ -1,22 +1,11 @@
 # SmartStock — démarrage local
 
-Commandes PowerShell depuis la racine du dépôt. Trois terminaux séparés.
+Commandes PowerShell depuis la racine du dépôt. Agent et mobile dans des terminaux séparés.
 
-## 1. Anemone — JDK 8
-
-Prérequis : `java` et `javac` du JDK 8 dans le `PATH`, JAR Anemone fourni par l’équipe.
-
-```powershell
-cd code/anemone-bridge
-$env:ANEMONE_JAR='D:/chemin/vers/root-assembly-0.1.0-SNAPSHOT.jar'
-./bridge/start.ps1 -Port 8092
-```
-
-## 2. Agent/API — JDK 21 et sbt
+## 1. Agent/API — JDK 21 et sbt
 
 ```powershell
 cd code/smartstock-agent
-$env:SMARTSTOCK_ANEMONE_URL='http://127.0.0.1:8092'
 sbt assembly
 java -jar target/scala-2.13/smartstock-agent.jar --demo
 ```
@@ -26,9 +15,9 @@ java -jar target/scala-2.13/smartstock-agent.jar --demo
 - Autre stockage : définir `SMARTSTOCK_DATA` avant de lancer l’agent.
 - État : <http://127.0.0.1:8081/api/v1/health>.
 - Stock et alertes : <http://127.0.0.1:8081/api/v1/snapshot>.
-- Sans Anemone : consultation disponible, aucun retrait automatique simulé en remplacement.
+- Retrait et ventilation : moteur Scala/Akka local, sans service externe.
 
-## 3. Mobile — Node ≥ 22.11, npm, SDK Android
+## 2. Mobile — Node ≥ 22.11, npm, SDK Android
 
 ```powershell
 cd code/mobile-app
@@ -54,7 +43,7 @@ Le transport HTTP de développement dépend de la configuration native Android.
 Mode API : actualisation toutes les 5 s, bouton **Actualiser**, erreur visible et **Réessayer**.
 iOS : macOS, Xcode et CocoaPods requis ; voir [mobile](../code/mobile-app/README.md).
 
-## 4. Passerelle — Python 3
+## 3. Passerelle — Python 3
 
 ```powershell
 python code/gateway/emitter.py --database "$env:TEMP/smartstock-events.sqlite" --demo
@@ -63,20 +52,18 @@ python code/gateway/emitter.py --database "$env:TEMP/smartstock-events.sqlite" -
 
 Sans ces options : entrée JSONL sur stdin. [Déploiement Pi 3 Model B](../code/gateway/README.md).
 
-## 5. Tests
+## 4. Tests
 
 ```powershell
 # Racine du dépôt
 python -m pip install -r code/connectivity/requirements-test.txt
 python -m unittest discover -s code/connectivity -v
 python -m unittest discover -s code/gateway -v
-python code/anemone-bridge/generate_thermal.py --check
 ```
 
-Dans `code/smartstock-agent/`, bridge démarré :
+Dans `code/smartstock-agent/` :
 
 ```powershell
-$env:SMARTSTOCK_ANEMONE_URL='http://127.0.0.1:8092'
 sbt scalafmtCheckAll test assembly
 ```
 
@@ -89,7 +76,7 @@ npm run typecheck
 npm test -- --runInBand
 ```
 
-Test complet API + Anemone, agent lancé avec `--demo` :
+Test complet API + moteur Scala/Akka, agent lancé avec `--demo` :
 
 ```powershell
 python code/tools/integration_smoke.py --url http://127.0.0.1:8081

@@ -15,7 +15,6 @@ import scala.util.control.NonFatal
 import spray.json._
 import smartstock.inventory._
 import smartstock.inventory.InventoryJson._
-import smartstock.anemone.AnemoneThermal
 import smartstock.events.StockInputs
 
 final class ApiServer(
@@ -24,7 +23,6 @@ final class ApiServer(
     requestedPort: Int = 0,
     simulated: Boolean = false,
     clock: Clock = Clock.systemUTC(),
-    thermal: Option[AnemoneThermal] = None,
     stockInputs: Option[StockInputs] = None,
     environmentLimits: EnvironmentLimits = EnvironmentLimits()
 )(implicit system: ActorSystem[_])
@@ -32,6 +30,7 @@ final class ApiServer(
   private val executor = Executors.newFixedThreadPool(4)
   private implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(executor)
   private implicit val timeout: Timeout = Timeout(5.seconds)
+  private val inputs = stockInputs.getOrElse(new StockInputs(inventory)(system, ec))
   private val server = HttpServer.create(new InetSocketAddress(bind, requestedPort), 32)
   server.setExecutor(executor)
   def port: Int = server.getAddress.getPort
@@ -152,7 +151,6 @@ final class ApiServer(
           java.util.UUID.fromString(data("operationId").convertTo[String])
           if (kind == "datamatrix.detected") data(key).convertTo[String]
           else data(key).convertTo[Double]
-          require(stockInputs.nonEmpty, "Stock input service not configured")
           val input = SensorRecord(
             id,
             data("operationId").convertTo[String],
@@ -163,7 +161,7 @@ final class ApiServer(
             fields("seq").convertTo[Long],
             System.currentTimeMillis()
           )
-          stockInputs.get.submit(input).map {
+          inputs.submit(input).map {
             case Left(e)  => error(e)
             case Right(_) => 200 -> JsObject("corr" -> JsString(id), "status" -> JsString("ok"))
           }
@@ -180,23 +178,6 @@ final class ApiServer(
             "UTC requis"
           )
           execute(RecordReading(reading, Some(fields("seq").convertTo[Long])), id).flatMap {
-            case (200, _) if reading.kind == "temperature.measured" && thermal.nonEmpty =>
-              val fanId = java.util.UUID.nameUUIDFromBytes((id + ":fan").getBytes(UTF_8)).toString
-              snapshot().flatMap { state =>
-                if (state.receipts.contains(fanId))
-                  Future.successful(
-                    200 -> JsObject("corr" -> JsString(id), "status" -> JsString("duplicate"))
-                  )
-                else
-                  thermal.get
-                    .evaluate(reading, id)
-                    .flatMap(fan => execute(RecordReading(fan), fanId))
-                    .map {
-                      case (200, _) =>
-                        200 -> JsObject("corr" -> JsString(id), "status" -> JsString("ok"))
-                      case other => other
-                    }
-              }
             case (200, _) =>
               Future.successful(200 -> JsObject("corr" -> JsString(id), "status" -> JsString("ok")))
             case other => Future.successful(other)

@@ -62,7 +62,7 @@ class ApiSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
             .randomUUID()}","type":"temperature.measured","src":"cabinet-01","seq":1,"ts":"2026-10-29T00:00:00Z","corr":null,"data":{"value":20}}"""
         assert(request("POST", "/api/v1/events", event).statusCode() == 200)
         assert(
-          request("GET", "/api/v1/readings").body().parseJson.convertTo[Vector[Reading]].size == 1
+          request("GET", "/api/v1/readings").body().parseJson.convertTo[Vector[Reading]].size == 2
         )
       } finally { server.close(); client.close() }
     }

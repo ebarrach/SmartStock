@@ -1,4 +1,4 @@
-"""Exercise the real agent/Anemone path against an explicitly simulated dataset."""
+"""Exercise the Scala/Akka agent path against an explicitly simulated dataset."""
 import argparse
 import json
 from urllib.request import Request, urlopen
@@ -27,7 +27,7 @@ def run(base):
     snapshot = get('/api/v1/snapshot')
     assert sum(r['source'] == source for r in snapshot['readings']) == 1
     assert snapshot['readings'][-1]['kind'] == 'fan.changed'
-    assert snapshot['readings'][-1]['source'] == 'anemone'
+    assert snapshot['readings'][-1]['source'] == 'scala-engine'
     assert snapshot['readings'][-1]['value'] == 75
     send(event(2, 25.9))
     assert get('/api/v1/snapshot')['readings'][-1]['value'] == 75
@@ -60,7 +60,7 @@ def run(base):
     updated = get('/api/v1/snapshot')
     assert next(b for b in updated['batches'] if b['id'] == batch['id'])['quantity'] == before
     assert len(updated['movements']) == movement_count + 2
-    print('PASS real API/Anemone: hysteresis, durable stock inputs, inverse order, withdrawal, duplicate, addition')
+    print('PASS API/Scala-Akka: hysteresis, durable stock inputs, inverse order, withdrawal, duplicate, addition')
 
 
 if __name__ == '__main__':

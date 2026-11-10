@@ -4,7 +4,6 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.util.Timeout
 import smartstock.inventory._
-import smartstock.anemone.AnemoneClient
 import java.util.UUID
 import java.nio.charset.StandardCharsets.UTF_8
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,7 +14,6 @@ import spray.json.DefaultJsonProtocol._
 /** Durable sensor inbox -> pure correlation -> engine/domain confirmation -> ledger. */
 final class StockInputs(
     inventory: ActorRef[InventoryActor.Command],
-    engine: Option[AnemoneClient],
     windowMillis: Long = 5000,
     toleranceGrams: Double = 0.5
 )(implicit
@@ -107,41 +105,8 @@ final class StockInputs(
                         java.time.Clock.systemUTC()
                       ) match {
                         case Left(error) => Future.successful(Left(error))
-                        case Right(_) if value.delta > 0 =>
-                          execute(op, businessId(input.operationId)).map(_.map(_ => true))
-                        case Right(_) if engine.isEmpty =>
-                          Future.successful(
-                            Left(
-                              DomainError(
-                                "engine_unavailable",
-                                "Anemone requis pour confirmer le retrait",
-                                503
-                              )
-                            )
-                          )
-                        case Right(_) if batch.get.quantity > 1000 =>
-                          Future.successful(
-                            Left(
-                              DomainError(
-                                "model_range",
-                                "Modele Anemone: stock automatique de 0 a 1000",
-                                409
-                              )
-                            )
-                          )
                         case Right(_) =>
-                          confirmWithdrawal(
-                            engine.get,
-                            batch.get.quantity,
-                            -value.delta,
-                            input.operationId
-                          ).flatMap { quantity =>
-                            require(
-                              quantity == batch.get.quantity + value.delta,
-                              "Unexpected engine stock"
-                            )
-                            execute(op, businessId(input.operationId)).map(_.map(_ => true))
-                          }
+                          execute(op, businessId(input.operationId)).map(_.map(_ => true))
                       }
                   }
               }
@@ -150,35 +115,5 @@ final class StockInputs(
     }
     tail = result.map(_ => ())
     result
-  }
-  private def confirmWithdrawal(
-      client: AnemoneClient,
-      before: Int,
-      units: Int,
-      operationId: String
-  ): Future[Int] = {
-    def finish(prefix: String, step: Int): Future[Int] = {
-      require(step <= 16, "Anemone stock step limit")
-      client.command("stock", "step", prefix + s":step:$step").flatMap { state =>
-        state.fields("executionStatus") match {
-          case JsString("completed") => Future.successful(state.fields("stock").convertTo[Int])
-          case JsString("paused")    => finish(prefix, step + 1)
-          case _ =>
-            Future.failed(new IllegalStateException("Anemone stock confirmation incomplete"))
-        }
-      }
-    }
-    client.command("stock", "seed", operationId + ":seed", Some(BigDecimal(before))).flatMap { _ =>
-      (0 until units).foldLeft(Future.successful(before)) { (previous, unit) =>
-        previous.flatMap { _ =>
-          val prefix = operationId + s":unit:$unit"
-          for {
-            _ <- client.command("stock", "events/weight", prefix + ":weight")
-            _ <- client.command("stock", "events/datamatrix", prefix + ":matrix")
-            quantity <- finish(prefix, 1)
-          } yield quantity
-        }
-      }
-    }
   }
 }

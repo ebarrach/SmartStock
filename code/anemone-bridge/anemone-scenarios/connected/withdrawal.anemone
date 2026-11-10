@@ -1,1 +1,0 @@
-get(poids_change(compresse));get(datamatrix_detecte(compresse));tell(retrait_confirme(compresse));sum q in Stock: get(stock(compresse,q));tell(stock(compresse,pred(q)))

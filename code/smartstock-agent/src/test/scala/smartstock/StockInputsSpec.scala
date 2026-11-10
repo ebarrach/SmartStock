@@ -4,9 +4,7 @@ import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.scalatest.wordspec.AnyWordSpecLike
 import smartstock.inventory._
 import smartstock.events.StockInputs
-import smartstock.anemone.AnemoneClient
 import java.nio.file.Files
-import java.net.URI
 import java.util.UUID
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -31,11 +29,11 @@ class StockInputsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       val op = UUID.randomUUID().toString
       val weight = input(op, "weight.changed", JsNumber(10), 1, 1000)
       val scan = input(op, "datamatrix.detected", JsString("DM-C"), 2, 1100)
-      val first = new StockInputs(actor, None)(system, ec)
+      val first = new StockInputs(actor)(system, ec)
       assert(Await.result(first.submit(weight), 5.seconds) == Right(false))
       testKit.stop(actor)
       val restarted = spawn(InventoryActor(new FileInventoryStore(file)))
-      val pipeline = new StockInputs(restarted, None)(system, ec)
+      val pipeline = new StockInputs(restarted)(system, ec)
       assert(Await.result(pipeline.submit(scan), 5.seconds) == Right(true))
       assert(Await.result(pipeline.submit(scan.copy(receivedAt = 9999)), 5.seconds) == Right(true))
       val probe = createTestProbe[Inventory]()
@@ -45,12 +43,12 @@ class StockInputsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       testKit.stop(restarted)
       Files.delete(file); Files.delete(directory)
     }
-    "ne pas confirmer un retrait si le vrai moteur est absent" in {
+    "confirmer un retrait avec le moteur local sans service externe" in {
       val store = new InventoryStore {
         def load(): Inventory = initial; def save(s: Inventory): Unit = ()
       }
       val actor = spawn(InventoryActor(store))
-      val pipeline = new StockInputs(actor, None)(system, ec)
+      val pipeline = new StockInputs(actor)(system, ec)
       val op = UUID.randomUUID().toString
       assert(
         Await.result(
@@ -60,24 +58,21 @@ class StockInputsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       )
       val result =
         Await.result(pipeline.submit(input(op, "weight.changed", JsNumber(-10), 2, 100)), 5.seconds)
-      assert(result.left.toOption.get.code == "engine_unavailable")
+      assert(result == Right(true))
       val probe = createTestProbe[Inventory]()
       actor ! InventoryActor.Get(probe.ref)
-      assert(probe.receiveMessage().batches.head.quantity == 40)
+      assert(probe.receiveMessage().batches.head.quantity == 39)
     }
-    "confirmer 40 vers39 avec Anemone puis persister une seule fois" in {
-      val endpoint =
-        sys.env.getOrElse("SMARTSTOCK_ANEMONE_URL", cancel("Real Anemone bridge required"))
-      val engine = new AnemoneClient(URI.create(endpoint))
+    "confirmer 40 vers39 en Scala puis persister une seule fois" in {
       val store = new InventoryStore {
         def load(): Inventory = initial; def save(s: Inventory): Unit = ()
       }
       val actor = spawn(InventoryActor(store))
-      val pipeline = new StockInputs(actor, Some(engine))(system, ec)
+      val pipeline = new StockInputs(actor)(system, ec)
       val op = UUID.randomUUID().toString
       val scan = input(op, "datamatrix.detected", JsString("DM-C"), 1, 0)
       val weight = input(op, "weight.changed", JsNumber(-10), 2, 100)
-      try {
+      locally {
         assert(Await.result(pipeline.submit(scan), 5.seconds) == Right(false))
         assert(Await.result(pipeline.submit(weight), 10.seconds) == Right(true))
         assert(Await.result(pipeline.submit(weight), 5.seconds) == Right(true))
@@ -85,7 +80,7 @@ class StockInputsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
         actor ! InventoryActor.Get(probe.ref)
         val state = probe.receiveMessage()
         assert(state.batches.head.quantity == 39 && state.movements.size == 1)
-      } finally engine.close()
+      }
     }
   }
 }

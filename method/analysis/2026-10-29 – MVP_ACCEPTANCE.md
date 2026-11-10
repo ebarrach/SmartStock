@@ -1,6 +1,9 @@
 # Critères observables du MVP — SS-001.2
 
 Ce document définit ce qui devra être accepté, sans déclarer les fonctions livrées.
+Décision du 10/11/2026 : dans SmartStock Classic, les preuves de stock et de
+ventilation sont désormais fournies par le moteur Scala/Akka autonome et ses
+tests API. Les références Anemone ci-dessous décrivent le cadrage historique.
 La checklist historique remise à vérifier conserve le périmètre détaillé.
 Matériel cible : Raspberry Pi 3 Model B ; DataMatrix remplace NFC.
 
@@ -22,16 +25,15 @@ Matériel cible : Raspberry Pi 3 Model B ; DataMatrix remplace NFC.
 | Mobile | Stock armoire/sac, détail, environnement, alertes et mouvements lisibles ; rafraîchir après opération ; afficher vide/chargement/périmé/hors connexion | Tests composants, parcours et essai téléphone |
 | Éclairage / caméra | Identifier lecteur réellement retenu et commande LED ; démontrer leurs fonctions sans inférer leur présence de la checklist | Nomenclature et essai matériel |
 
-## Anemone et démonstrations
+## Anemone et démonstrations — historique du 29/10/2026
 
 La simulation Scala de lot 40 → 39 ne remplace pas le modèle Anemone attendu :
 `datamatrix_detecte` + `poids_change` → `retrait_confirme` → mise à jour unique.
 L'autre scénario représente les niveaux thermiques et la puissance du ventilateur.
 Le Visualizer reçu pendant l'audit fournit ces modèles et un pont vers le JAR
 réel. Les sept scripts ont été exécutés avec succès ; modèles/procédures conservés
-sous `code/anemone-bridge`, avec empreintes et méthode de reproduction. Le pont
-réutilisable y est extrait ; l’interface historique reste dans le Visualizer.
-Le service persistant utilise ces modèles via HTTP ; voir `method/DEMARRAGE.md`.
+dans le prototype alors présent dans ce dépôt. Ce prototype et le pont ont
+été retirés de SmartStock Classic après sauvegarde et validation utilisateur.
 La démonstration a des entrées injectées : aucune lecture physique n'est prouvée.
 
 ## Utilisation
@@ -39,3 +41,10 @@ La démonstration a des entrées injectées : aucune lecture physique n'est prou
 Ces critères sont la référence des tests et de la recette. Les liens ClickUp et
 revues constituent des actions humaines administratives distinctes de la
 validation technique ; leur attente n’empêche pas le développement.
+
+## Décision actuelle — 10/11/2026
+
+SmartStock Classic utilise le moteur Scala/Akka local pour les mouvements et
+la ventilation. Les critères observables ci-dessus restent applicables ;
+ScalaEngineApiSpec et le scénario HTTP les vérifient sans moteur externe.
+Commandes : `method/DEMARRAGE.md`. Les essais physiques restent à effectuer.

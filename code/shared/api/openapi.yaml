@@ -876,7 +876,7 @@
     "/api/v1/events": {
       "post": {
         "operationId": "receiveEvent",
-        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le retrait est confirme par Anemone. Ack signifie reception durable, pas necessairement mouvement confirme. Modele retrait automatique borne 0..1000; ajustements manuels disponibles au-dela.",
+        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine.",
         "requestBody": {
           "required": true,
           "content": {
