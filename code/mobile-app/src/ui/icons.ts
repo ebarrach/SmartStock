@@ -8,4 +8,6 @@ export {
   Fan,
   Settings,
   RefreshCw,
+  BarChart3,
+  ShoppingCart,
 } from 'lucide-react-native';

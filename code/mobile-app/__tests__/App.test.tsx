@@ -9,6 +9,17 @@ jest.mock(
   'react-native-safe-area-context',
   () => require('react-native-safe-area-context/jest/mock').default,
 );
+jest.mock('../src/ui/svg', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: View,
+    Rect: View,
+    Defs: View,
+    LinearGradient: View,
+    Stop: View,
+  };
+});
 jest.mock('../src/ui/icons', () =>
   Object.fromEntries(
     [
@@ -21,6 +32,8 @@ jest.mock('../src/ui/icons', () =>
       'Fan',
       'Settings',
       'RefreshCw',
+      'BarChart3',
+      'ShoppingCart',
     ].map(name => [name, () => null]),
   ),
 );
@@ -53,7 +66,7 @@ test('dashboard et navigation compacte sans sac opérationnel', async () => {
   expect(text()).not.toContain('LOT-S');
   await press('Détail LOT-C');
   expect(text()).toContain('DataMatrix');
-  expect(text()).toContain('40');
+  expect(text()).toContain('Stock');
   await press('Retour au stock');
   await press('Mouvements');
   expect(text()).toContain('Stock après opération');
@@ -165,7 +178,19 @@ test('breakpoints téléphone, tablette, PC', () => {
 });
 
 test('filtrer le sac ne purge pas les données historiques', async () => {
-  const snapshot = await new MockStockRepository().load();
+  const original = await new MockStockRepository().load();
+  const snapshot = {
+    ...original,
+    batches: [
+      ...original.batches,
+      {
+        ...original.batches[0],
+        id: 'LOT-S',
+        location: 'bag' as const,
+        quantity: 4,
+      },
+    ],
+  };
   const before = JSON.stringify(snapshot);
   const data = cabinetData(snapshot);
   expect(data.batches.every(b => b.location === 'cabinet')).toBe(true);

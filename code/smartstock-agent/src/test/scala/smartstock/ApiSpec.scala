@@ -64,6 +64,18 @@ class ApiSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
         assert(
           request("GET", "/api/v1/readings").body().parseJson.convertTo[Vector[Reading]].size == 2
         )
+        val refill =
+          """{"batchId":"LOT-C","delta":1,"kind":"replenishment","source":"operator","reason":"livraison"}"""
+        val refillId = UUID.randomUUID().toString
+        assert(request("POST", "/api/v1/movements", refill, refillId).statusCode() == 200)
+        assert(request("POST", "/api/v1/movements", refill, refillId).statusCode() == 200)
+        val movements =
+          request("GET", "/api/v1/movements").body().parseJson.convertTo[Vector[Movement]]
+        assert(
+          movements.size == 2 && movements.last.kind == "replenishment" && movements.last.source == "operator" && movements.last.reason == "livraison"
+        )
+        assert(request("GET", "/api/v1/analytics?months=6").statusCode() == 200)
+        assert(request("GET", "/api/v1/analytics?months=2").statusCode() == 400)
       } finally { server.close(); client.close() }
     }
   }

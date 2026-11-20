@@ -1,0 +1,124 @@
+{
+  "entries": [
+    {
+      "category": "consommable",
+      "coverageDays": 30,
+      "leadDays": 7,
+      "packSize": 10,
+      "product": {
+        "dataMatrix": "demo-compresses",
+        "id": "compresses",
+        "minStock": 5,
+        "name": "Compresses",
+        "unitWeightGrams": 10
+      },
+      "safetyDays": 7,
+      "storageConditions": "Conditions pedagogiques a confirmer sur produit reel",
+      "targetQuantity": 40,
+      "unit": "unite"
+    },
+    {
+      "category": "consommable",
+      "coverageDays": 30,
+      "leadDays": 7,
+      "packSize": 10,
+      "product": {
+        "dataMatrix": "demo-pansements",
+        "id": "pansements",
+        "minStock": 5,
+        "name": "Pansements",
+        "unitWeightGrams": 2
+      },
+      "safetyDays": 7,
+      "storageConditions": "Conditions pedagogiques a confirmer sur produit reel",
+      "targetQuantity": 40,
+      "unit": "unite"
+    },
+    {
+      "category": "consommable",
+      "coverageDays": 30,
+      "leadDays": 7,
+      "packSize": 10,
+      "product": {
+        "dataMatrix": "demo-gants",
+        "id": "gants",
+        "minStock": 5,
+        "name": "Gants",
+        "unitWeightGrams": 3
+      },
+      "safetyDays": 7,
+      "storageConditions": "Conditions pedagogiques a confirmer sur produit reel",
+      "targetQuantity": 40,
+      "unit": "unite"
+    },
+    {
+      "category": "consommable",
+      "coverageDays": 30,
+      "leadDays": 7,
+      "packSize": 10,
+      "product": {
+        "dataMatrix": "demo-seringues",
+        "id": "seringues",
+        "minStock": 5,
+        "name": "Seringues",
+        "unitWeightGrams": 5
+      },
+      "safetyDays": 7,
+      "storageConditions": "Conditions pedagogiques a confirmer sur produit reel",
+      "targetQuantity": 40,
+      "unit": "unite"
+    },
+    {
+      "category": "consommable",
+      "coverageDays": 30,
+      "leadDays": 7,
+      "packSize": 10,
+      "product": {
+        "dataMatrix": "demo-serum",
+        "id": "serum",
+        "minStock": 5,
+        "name": "Serum physiologique - exemple",
+        "unitWeightGrams": 20
+      },
+      "safetyDays": 7,
+      "storageConditions": "Conditions pedagogiques a confirmer sur produit reel",
+      "targetQuantity": 40,
+      "unit": "unite"
+    },
+    {
+      "category": "medicament-fictif",
+      "coverageDays": 30,
+      "leadDays": 7,
+      "packSize": 10,
+      "product": {
+        "dataMatrix": "demo-med-exemple-a",
+        "id": "med-exemple-a",
+        "minStock": 5,
+        "name": "Medicament fictif A - exemple",
+        "unitWeightGrams": 5
+      },
+      "safetyDays": 7,
+      "storageConditions": "Conditions pedagogiques a confirmer sur produit reel",
+      "targetQuantity": 40,
+      "unit": "unite"
+    },
+    {
+      "category": "medicament-fictif",
+      "coverageDays": 30,
+      "leadDays": 7,
+      "packSize": 10,
+      "product": {
+        "dataMatrix": "demo-med-exemple-b",
+        "id": "med-exemple-b",
+        "minStock": 5,
+        "name": "Medicament fictif B - exemple",
+        "unitWeightGrams": 5
+      },
+      "safetyDays": 7,
+      "storageConditions": "Conditions pedagogiques a confirmer sur produit reel",
+      "targetQuantity": 40,
+      "unit": "unite"
+    }
+  ],
+  "exampleData": true
+}

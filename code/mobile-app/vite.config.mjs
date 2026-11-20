@@ -29,7 +29,8 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/agent': {
-        target: 'http://127.0.0.1:8081',
+        target:
+          process.env.SMARTSTOCK_API_PROXY_TARGET || 'http://127.0.0.1:8081',
         rewrite: p => p.replace(/^\/agent/, ''),
       },
     },

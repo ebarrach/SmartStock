@@ -11,11 +11,45 @@ java -jar target/scala-2.13/smartstock-agent.jar --demo
 ```
 
 - `--demo` : initialise un stockage vide avec des données simulées ; omettre pour le mode sans initialisation fictive.
-- Stockage : `code/smartstock-agent/data/inventory.json` avec ces commandes.
+- Stockage réel : `code/smartstock-agent/data/inventory.json` ; avec `--demo` :
+  `code/smartstock-agent/data/demo-inventory.json`.
 - Autre stockage : définir `SMARTSTOCK_DATA` avant de lancer l’agent.
+- Autre stockage de démo : `SMARTSTOCK_DEMO_DATA`, distinct de `SMARTSTOCK_DATA`.
+- Catalogue : `config/catalog.json` (réel), `config/demo-catalog.json` (démo),
+  depuis le dossier agent. `SMARTSTOCK_CATALOG` permet un fichier explicite.
+  Une définition contient `product` (format API existant), `category`, `unit`,
+  `targetQuantity`, `leadDays`, `packSize`, `coverageDays`, `safetyDays` et
+  `storageConditions`. Les lots et leurs quantités restent dans le stockage.
+  Le catalogue réel livré est vide ; il conserve les produits déjà enregistrés.
+  Un catalogue marqué `exampleData: true` est refusé en mode réel.
 - État : <http://127.0.0.1:8081/api/v1/health>.
 - Stock et alertes : <http://127.0.0.1:8081/api/v1/snapshot>.
 - Retrait et ventilation : moteur Scala/Akka local, sans service externe.
+
+### Candidat sans arrêter le service existant
+
+Depuis `code/smartstock-agent/`, JDK 21 :
+
+```powershell
+sbt 'set assembly / assemblyCacheOutput := false' 'set assembly / assemblyOutputPath := file("../../carnet-de-bord/smartstock-analysis-candidate.jar")' assembly
+$env:SMARTSTOCK_PORT='18099'
+$env:SMARTSTOCK_BIND='0.0.0.0'
+$env:SMARTSTOCK_DEMO_DATA='../../carnet-de-bord/demo-telephone.json'
+java -jar ../../carnet-de-bord/smartstock-analysis-candidate.jar --demo
+```
+
+Choisir un port libre et un fichier distinct pour chaque instance. Ne jamais partager le stockage entre deux processus. `--demo` utilise exclusivement des exemples ; pour le réel, omettre ce drapeau et définir `SMARTSTOCK_DATA` vers le stockage réel, avec une seule instance. Ne pas remplacer le JAR d’un service en cours.
+
+Pour tester le candidat sur PC, depuis `code/mobile-app/` :
+
+```powershell
+$env:SMARTSTOCK_API_PROXY_TARGET='http://127.0.0.1:18099'
+npm run web -- --port 5174
+```
+
+Ouvrir <http://127.0.0.1:5174> → Connexion → `/agent`. Sur téléphone : Connexion → `http://ADRESSE_IP_DU_PC:18099` (réseau local, port autorisé, HTTP seulement en développement), ou URL HTTPS déployée. L’émulateur utilise `http://10.0.2.2:18099`. Metro reste sur **8082**.
+
+Graphiques : tableau de bord ou détail produit → produit, 3/6/12 mois, série et mois de capteurs. Suggestions : tableau de bord ou Stock → détail et actualisation, sans commande ni écriture de stock. Format JSON, formules et limites : [PREVISION.md](PREVISION.md).
 
 ## 2. Mobile — Node ≥ 22.12, npm, SDK Android
 

@@ -97,7 +97,14 @@ final class StockInputs(
                       Future.successful(Left(DomainError(error.code, "Correlation refusee")))
                     case Right(None) => Future.successful(Right(false))
                     case Right(Some(value)) =>
-                      val op = AdjustStock(value.batchId, value.delta, Some(batch.get.quantity))
+                      val op = AdjustStock(
+                        value.batchId,
+                        value.delta,
+                        Some(batch.get.quantity),
+                        if (value.delta < 0) "consumption" else "replenishment",
+                        input.source,
+                        "sensor-correlation"
+                      )
                       InventoryRules.execute(
                         state,
                         op,

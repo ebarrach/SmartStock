@@ -9,7 +9,9 @@ export type Destination =
   | 'Alertes'
   | 'Connexion'
   | 'Démonstration'
-  | 'Produit';
+  | 'Produit'
+  | 'Graphiques'
+  | 'Suggestions';
 const items = [
   { name: 'Tableau de bord', icon: LayoutDashboard },
   { name: 'Stock', icon: Package },

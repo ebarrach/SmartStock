@@ -37,6 +37,8 @@ lié au snapshot courant. Build natif et radios doivent être vérifiés sur app
 
 ## Lancement
 
+Tableau de bord et détail produit → **Graphiques** (produit, période, mouvements, stock et mesures quotidiennes). Tableau de bord et Stock → **Suggestions de réapprovisionnement**, fenêtre sur grand écran et vue sur téléphone. Les quantités sont calculées par Scala/Akka ; aucune commande fournisseur ni écriture automatique. Le mode Démo hors ligne utilise les réponses exportées du backend, jamais des données de secours en mode API. Voir [format et calculs](../../method/PREVISION.md).
+
 - API Scala : port **8081**, voir [démarrage](../../method/DEMARRAGE.md).
 - Android : `npm start` (Metro **8082**), puis `npm run android` dans un autre terminal.
 - PC : `npm run web`, puis <http://127.0.0.1:5173> ; `npm run build:web` compile la version web.

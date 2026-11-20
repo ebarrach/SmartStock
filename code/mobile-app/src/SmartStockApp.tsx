@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Image,
+  Modal,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from './ui/SafeArea';
-import { Settings, RefreshCw } from './ui/icons';
+import { Settings, RefreshCw, BarChart3, ShoppingCart } from './ui/icons';
 import {
   ApiStockRepository,
   demoRepository,
@@ -27,12 +28,20 @@ import {
 } from './ui/InventoryScreens';
 import { layoutForWidth, theme } from './ui/theme';
 import logo from './assets/logo';
+import { AnalysisScreen, GradientSurface } from './ui/AnalysisScreen';
 const c = theme.colors;
 export default function SmartStockApp({
   repository = demoRepository,
 }: {
   repository?: StockRepository;
 }) {
+  const [graphProduct, setGraphProduct] = useState('');
+  const [returnScreen, setReturnScreen] =
+    useState<Destination>('Tableau de bord');
+  const openSuggestions = () => {
+    setReturnScreen(screen);
+    setScreen('Suggestions');
+  };
   const [override, setOverride] = useState<StockRepository | null>(null);
   const active = override ?? repository;
   const data = useInventory(active);
@@ -178,6 +187,74 @@ export default function SmartStockApp({
                 ) : (
                   <>
                     {screen === 'Tableau de bord' && (
+                      <GradientSurface>
+                        <Text
+                          style={{
+                            color: 'white',
+                            fontSize: 20,
+                            fontWeight: '700',
+                          }}
+                        >
+                          Anticiper les besoins
+                        </Text>
+                        <Action
+                          secondary
+                          label="Graphiques"
+                          icon={<BarChart3 color={c.navigation} size={20} />}
+                          onPress={() => {
+                            setGraphProduct('');
+                            navigate('Graphiques');
+                          }}
+                        />
+                        <Action
+                          secondary
+                          label="Suggestions de réapprovisionnement"
+                          icon={<ShoppingCart color={c.navigation} size={20} />}
+                          onPress={openSuggestions}
+                        />
+                      </GradientSurface>
+                    )}
+                    {(screen === 'Stock' || screen === 'Produit') && (
+                      <View style={{ gap: 10 }}>
+                        <Action
+                          secondary
+                          label="Graphiques"
+                          icon={<BarChart3 color={c.navigation} size={20} />}
+                          onPress={() => {
+                            setGraphProduct(
+                              screen === 'Produit'
+                                ? data.snapshot?.batches.find(
+                                    b => b.id === batchId,
+                                  )?.productId ?? ''
+                                : '',
+                            );
+                            navigate('Graphiques');
+                          }}
+                        />
+                        <Action
+                          secondary
+                          label="Suggestions de réapprovisionnement"
+                          onPress={openSuggestions}
+                        />
+                      </View>
+                    )}
+                    {screen === 'Graphiques' && (
+                      <AnalysisScreen
+                        repository={active}
+                        initialProduct={graphProduct}
+                      />
+                    )}
+                    {screen === 'Suggestions' && !wide && (
+                      <>
+                        <Action
+                          secondary
+                          label="Fermer les suggestions"
+                          onPress={() => navigate(returnScreen)}
+                        />
+                        <AnalysisScreen repository={active} suggestions />
+                      </>
+                    )}
+                    {screen === 'Tableau de bord' && (
                       <Dashboard
                         snapshot={data.snapshot}
                         columns={layout.columns}
@@ -280,6 +357,44 @@ export default function SmartStockApp({
         {!wide && (
           <Navigation wide={false} active={screen} onSelect={navigate} />
         )}
+        <Modal
+          visible={screen === 'Suggestions' && wide}
+          transparent
+          animationType="fade"
+          onRequestClose={() => navigate(returnScreen)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(7,30,48,0.5)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            <View
+              accessibilityViewIsModal
+              style={{
+                width: Math.min(width - 32, 760),
+                maxHeight: '85%',
+                backgroundColor: c.background,
+                borderRadius: 16,
+                padding: 20,
+                gap: 16,
+              }}
+            >
+              <Title>Suggestions de réapprovisionnement</Title>
+              <Action
+                secondary
+                label="Fermer les suggestions"
+                onPress={() => navigate(returnScreen)}
+              />
+              <ScrollView contentContainerStyle={{ gap: 16 }}>
+                <AnalysisScreen repository={active} suggestions />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );

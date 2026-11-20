@@ -25,7 +25,11 @@ final case class Movement(
     delta: Int,
     quantityAfter: Int,
     occurredAt: String,
-    eventId: String
+    eventId: String,
+    productId: String = "",
+    kind: String = "legacy",
+    source: String = "unknown",
+    reason: String = ""
 )
 final case class Reading(kind: String, value: Double, source: String, observedAt: String)
 final case class SensorRecord(
@@ -38,13 +42,17 @@ final case class SensorRecord(
     sequence: Long,
     receivedAt: Long
 )
+final case class StockBaseline(quantity: Int, recordedAt: String)
 final case class Inventory(
     products: Vector[Product] = Vector.empty,
     batches: Vector[Batch] = Vector.empty,
     movements: Vector[Movement] = Vector.empty,
     readings: Vector[Reading] = Vector.empty,
     receipts: Map[String, String] = Map.empty,
-    sensorInputs: Vector[SensorRecord] = Vector.empty
+    sensorInputs: Vector[SensorRecord] = Vector.empty,
+    baselines: Map[String, StockBaseline] = Map.empty,
+    dataset: String = "real",
+    dailyMeasures: Vector[DailyMeasure] = Vector.empty
 )
 final case class DomainError(code: String, message: String, status: Int = 400)
 final case class EnvironmentLimits(
@@ -67,14 +75,30 @@ final case class RegisterProduct(product: Product) extends InventoryOperation {
 final case class RegisterBatch(batch: Batch) extends InventoryOperation {
   def fingerprint: String = { import InventoryJson._; batch.toJson.compactPrint }
 }
-final case class AdjustStock(batchId: String, delta: Int, expectedBefore: Option[Int] = None)
-    extends InventoryOperation {
-  def fingerprint: String =
-    JsObject(
+final case class AdjustStock(
+    batchId: String,
+    delta: Int,
+    expectedBefore: Option[Int] = None,
+    kind: String = "correction",
+    source: String = "manual",
+    reason: String = ""
+) extends InventoryOperation {
+  def fingerprint: String = {
+    val base = JsObject(
       "batchId" -> JsString(batchId),
       "delta" -> JsNumber(delta),
       "expectedBefore" -> expectedBefore.map(JsNumber(_)).getOrElse(JsNull)
-    ).compactPrint
+    )
+    if (kind == "correction" && source == "manual" && reason.isEmpty) base.compactPrint
+    else
+      JsObject(
+        base.fields ++ Map(
+          "kind" -> JsString(kind),
+          "source" -> JsString(source),
+          "reason" -> JsString(reason)
+        )
+      ).compactPrint
+  }
 }
 final case class RecordReading(reading: Reading, sequence: Option[Long] = None)
     extends InventoryOperation {
@@ -92,17 +116,43 @@ final case class RecordSensor(input: SensorRecord) extends InventoryOperation {
 object InventoryJson extends DefaultJsonProtocol {
   implicit val productFormat: RootJsonFormat[Product] = jsonFormat5(Product.apply)
   implicit val batchFormat: RootJsonFormat[Batch] = jsonFormat5(Batch.apply)
-  implicit val movementFormat: RootJsonFormat[Movement] = jsonFormat6(Movement.apply)
+  private val fullMovementFormat = jsonFormat10(Movement.apply)
+  implicit val movementFormat: RootJsonFormat[Movement] = new RootJsonFormat[Movement] {
+    def write(value: Movement): JsValue = fullMovementFormat.write(value)
+    def read(value: JsValue): Movement = fullMovementFormat.read(
+      JsObject(
+        Map(
+          "productId" -> JsString(""),
+          "kind" -> JsString("legacy"),
+          "source" -> JsString("unknown"),
+          "reason" -> JsString("")
+        ) ++ value.asJsObject.fields
+      )
+    )
+  }
+  implicit val baselineFormat: RootJsonFormat[StockBaseline] = jsonFormat2(StockBaseline.apply)
   implicit val readingFormat: RootJsonFormat[Reading] = jsonFormat4(Reading.apply)
   implicit val sensorFormat: RootJsonFormat[SensorRecord] = jsonFormat8(SensorRecord.apply)
-  private val fullInventoryFormat = jsonFormat6(Inventory.apply)
+  implicit val dailyMeasureFormat: RootJsonFormat[DailyMeasure] = jsonFormat7(DailyMeasure.apply)
+  private val fullInventoryFormat = jsonFormat9(Inventory.apply)
   implicit val inventoryFormat: RootJsonFormat[Inventory] = new RootJsonFormat[Inventory] {
     def write(state: Inventory): JsValue = fullInventoryFormat.write(state)
     def read(value: JsValue): Inventory = {
-      val fields = value.asJsObject.fields
+      val original = value.asJsObject.fields
+      val fields =
+        if (original.contains("dailyMeasures")) original
+        else
+          original.updated(
+            "dailyMeasures",
+            MeasureHistory.from(original("readings").convertTo[Vector[Reading]]).toJson
+          )
       fullInventoryFormat.read(
         JsObject(
-          if (fields.contains("sensorInputs")) fields else fields.updated("sensorInputs", JsArray())
+          Map(
+            "sensorInputs" -> JsArray(),
+            "baselines" -> JsObject(),
+            "dataset" -> JsString("legacy")
+          ) ++ fields
         )
       )
     }
@@ -129,6 +179,8 @@ object InventoryRules {
       case Some(_) => return Left(DomainError("id_conflict", "Identifiant reutilise", 409))
       case None    => ()
     }
+    if (state.movements.exists(_.eventId == eventId))
+      return Left(DomainError("id_conflict", "Identifiant historique deja utilise", 409))
     val streamKey = operation match {
       case RecordSensor(input) => Some(s"stream:${input.source}:${input.sequence}")
       case RecordReading(reading, Some(sequence)) => Some(s"stream:${reading.source}:$sequence")
@@ -160,14 +212,29 @@ object InventoryRules {
           Left(DomainError("product_not_found", "Produit inconnu", 404))
         else if (state.batches.exists(_.id == batch.id))
           Left(DomainError("batch_exists", "Lot deja enregistre", 409))
-        else Right(state.copy(batches = state.batches :+ batch))
-      case AdjustStock(batchId, delta, expectedBefore) =>
+        else
+          Right(
+            state.copy(
+              batches = state.batches :+ batch,
+              baselines = state.baselines
+                .updated(batch.id, StockBaseline(batch.quantity, Instant.now(clock).toString))
+            )
+          )
+      case AdjustStock(batchId, delta, expectedBefore, kind, source, reason) =>
         state.batches
           .find(_.id == batchId)
           .toRight(DomainError("batch_not_found", "Lot inconnu", 404))
           .flatMap { batch =>
             val next = batch.quantity.toLong + delta.toLong
-            if (expectedBefore.exists(_ != batch.quantity))
+            if (
+              !Set("consumption", "replenishment", "correction", "loss", "expiry")(
+                kind
+              ) || !validId(source) || reason.length > 500 ||
+              (Set("consumption", "loss", "expiry")(
+                kind
+              ) && delta >= 0) || (kind == "replenishment" && delta <= 0)
+            ) invalid("Type, origine ou signe de mouvement invalide")
+            else if (expectedBefore.exists(_ != batch.quantity))
               Left(DomainError("stock_changed", "Stock modifie pendant confirmation", 409))
             else if (delta == 0) invalid("Variation nulle")
             else if (next < 0 || next > Int.MaxValue)
@@ -179,7 +246,11 @@ object InventoryRules {
                 delta,
                 next.toInt,
                 Instant.now(clock).toString,
-                eventId
+                eventId,
+                batch.productId,
+                kind,
+                source,
+                reason
               )
               Right(
                 state.copy(
@@ -231,7 +302,16 @@ object InventoryRules {
             val power = smartstock.engine.ThermalPolicy.next(reading.value, previous)
             appended :+ Reading("fan.changed", power, "scala-engine", reading.observedAt)
           } else appended
-          Right(state.copy(readings = readings.takeRight(1000)))
+          Right(
+            state.copy(
+              readings = readings.takeRight(1000),
+              dailyMeasures = MeasureHistory.record(
+                if (state.dailyMeasures.nonEmpty) state.dailyMeasures
+                else MeasureHistory.from(state.readings),
+                reading
+              )
+            )
+          )
         }
     }
     result.map { updated =>

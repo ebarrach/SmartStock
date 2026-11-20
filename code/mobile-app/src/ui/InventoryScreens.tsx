@@ -260,7 +260,27 @@ export function ActivityScreen({
             {m.delta} unités
           </Text>
           <Text>Stock après opération : {m.quantityAfter}</Text>
-          <Message text={new Date(m.occurredAt).toLocaleString()} />
+          <Text>
+            {(
+              {
+                consumption: 'Consommation',
+                replenishment: 'Réapprovisionnement',
+                correction: 'Correction',
+                loss: 'Perte',
+                expiry: 'Péremption',
+              } as Record<string, string>
+            )[m.kind ?? ''] ?? 'Ancien mouvement non classé'}
+          </Text>
+          <Message
+            text={`Origine : ${m.source ?? 'inconnue'}${
+              m.reason ? ' · ' + m.reason : ''
+            }`}
+          />
+          <Message
+            text={new Date(m.occurredAt).toLocaleString(undefined, {
+              timeZoneName: 'short',
+            })}
+          />
         </Card>
       ))}
     </>

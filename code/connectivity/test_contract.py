@@ -31,6 +31,23 @@ class ContractTests(unittest.TestCase):
         with urlopen(os.environ['SMARTSTOCK_API_URL'] + '/api/v1/snapshot', timeout=5) as response:
             self.validator('Snapshot').validate(json.load(response))
 
+    def test_demo_reports_catalog_and_snapshot_match_contract(self):
+        fixtures = ROOT / 'examples'
+        self.validator('Snapshot').validate(json.loads((fixtures / 'demo-snapshot.json').read_text(encoding='utf-8')))
+        self.validator('Catalog').validate(json.loads((fixtures / 'demo-catalog.json').read_text(encoding='utf-8')))
+        reports = json.loads((fixtures / 'demo-analytics.json').read_text(encoding='utf-8'))
+        for report in reports.values():
+            self.validator('AnalysisReport').validate(report)
+        self.assertTrue(any(p['suggestion']['quantity'] > 0 for p in reports['6']['products']))
+        self.assertTrue(any(p['suggestion']['quantity'] == 0 for p in reports['6']['products']))
+        self.assertTrue(any(d['mean'] is None and d['count'] == 0 for d in reports['6']['sensors']))
+
+    @unittest.skipUnless(os.environ.get('SMARTSTOCK_API_URL'), 'Requires running real Scala API')
+    def test_live_catalog_and_analytics(self):
+        for route, schema in [('catalog', 'Catalog'), ('analytics?months=6', 'AnalysisReport')]:
+            with urlopen(os.environ['SMARTSTOCK_API_URL'] + '/api/v1/' + route, timeout=10) as response:
+                self.validator(schema).validate(json.load(response))
+
 
 if __name__ == '__main__':
     unittest.main()

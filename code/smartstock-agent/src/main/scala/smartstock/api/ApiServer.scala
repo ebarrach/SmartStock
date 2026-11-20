@@ -24,12 +24,17 @@ final class ApiServer(
     simulated: Boolean = false,
     clock: Clock = Clock.systemUTC(),
     stockInputs: Option[StockInputs] = None,
-    environmentLimits: EnvironmentLimits = EnvironmentLimits()
+    environmentLimits: EnvironmentLimits = EnvironmentLimits(),
+    catalog: Catalog = Catalog(false, Vector.empty)
 )(implicit system: ActorSystem[_])
     extends AutoCloseable {
   private val executor = Executors.newFixedThreadPool(4)
   private implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(executor)
   private implicit val timeout: Timeout = Timeout(5.seconds)
+  private val analysis = system.systemActorOf(
+    smartstock.analytics.AnalysisActor(catalog, clock),
+    "analysis-" + java.util.UUID.randomUUID().toString
+  )
   private val inputs = stockInputs.getOrElse(new StockInputs(inventory)(system, ec))
   private val server = HttpServer.create(new InetSocketAddress(bind, requestedPort), 32)
   server.setExecutor(executor)
@@ -79,7 +84,7 @@ final class ApiServer(
     val path = x.getRequestURI.getPath
     val query = Option(x.getRequestURI.getRawQuery)
     if (
-      query.nonEmpty && !(path == "/api/v1/stock" && query
+      query.nonEmpty && path != "/api/v1/analytics" && !(path == "/api/v1/stock" && query
         .exists(q => q == "location=cabinet" || q == "location=bag"))
     )
       return Future.successful(error(DomainError("invalid_query", "Parametres inconnus")))
@@ -89,6 +94,20 @@ final class ApiServer(
           200 -> JsObject("status" -> JsString("ok"), "simulated" -> JsBoolean(simulated))
         )
       case ("GET", "/api/v1/snapshot") => snapshot().map(s => 200 -> publicSnapshot(s))
+      case ("GET", "/api/v1/catalog")  => Future.successful(200 -> Catalog.json(catalog))
+      case ("GET", "/api/v1/analytics") =>
+        val pairs = query.toVector.flatMap(_.split("&")).map(_.split("=", 2))
+        require(
+          pairs.forall(p => p.length == 2 && p(0) == "months") && pairs.size <= 1,
+          "Parametres analyse invalides"
+        )
+        val months = pairs.headOption.map(_(1).toInt).getOrElse(6)
+        require(Set(3, 6, 12)(months), "Periode attendue : 3, 6 ou 12")
+        snapshot()
+          .flatMap(state =>
+            analysis.ask[JsObject](smartstock.analytics.AnalysisActor.Calculate(state, months, _))
+          )
+          .map(value => 200 -> value)
       case ("GET", "/api/v1/products") => snapshot().map(s => 200 -> s.products.toJson)
       case ("GET", p) if p.startsWith("/api/v1/products/") =>
         snapshot().map(s =>
@@ -122,9 +141,21 @@ final class ApiServer(
         execute(RegisterBatch(json.convertTo[Batch]), commandId(x))
       case ("POST", "/api/v1/movements") =>
         val fields = body(x).fields
-        require(fields.keySet == Set("batchId", "delta"), "Champs de mouvement invalides")
+        require(
+          Set("batchId", "delta").subsetOf(fields.keySet) && fields.keySet.subsetOf(
+            Set("batchId", "delta", "kind", "source", "reason")
+          ),
+          "Champs de mouvement invalides"
+        )
         execute(
-          AdjustStock(fields("batchId").convertTo[String], fields("delta").convertTo[Int]),
+          AdjustStock(
+            fields("batchId").convertTo[String],
+            fields("delta").convertTo[Int],
+            None,
+            fields.get("kind").map(_.convertTo[String]).getOrElse("correction"),
+            fields.get("source").map(_.convertTo[String]).getOrElse("manual"),
+            fields.get("reason").map(_.convertTo[String]).getOrElse("")
+          ),
           commandId(x)
         )
       case ("POST", "/api/v1/events") =>

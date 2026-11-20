@@ -26,8 +26,9 @@ test('le fetch navigateur conserve son contexte global', async () => {
 test('le mock respecte le contrat de snapshot et conserve les lots separes', async () => {
   const snapshot = await new MockStockRepository().load();
   expect(snapshot.simulated).toBe(true);
-  expect(snapshot.batches.map(b => b.location)).toEqual(['cabinet', 'bag']);
-  expect(snapshot.batches.map(b => b.quantity)).toEqual([40, 4]);
+  expect(snapshot.products).toHaveLength(7);
+  expect(snapshot.batches.every(b => b.location === 'cabinet')).toBe(true);
+  expect(snapshot.movements.some(m => m.kind === 'consumption')).toBe(true);
 });
 test('le repository HTTP utilise le meme contrat et signale le mode recu', async () => {
   const demo = await new MockStockRepository().load();

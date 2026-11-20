@@ -17,11 +17,13 @@ export function Action({
   onPress,
   disabled = false,
   secondary = false,
+  icon,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   secondary?: boolean;
+  icon?: React.ReactNode;
 }) {
   return (
     <Pressable
@@ -35,6 +37,7 @@ export function Action({
         disabled && { opacity: 0.45 },
       ]}
     >
+      {icon}
       <Text
         style={{ color: secondary ? c.navigation : 'white', fontWeight: '700' }}
       >
@@ -110,6 +113,8 @@ export const styles = StyleSheet.create({
     gap: 14,
   },
   button: {
+    flexDirection: 'row',
+    gap: 8,
     alignSelf: 'flex-start',
     minHeight: 48,
     paddingHorizontal: 18,

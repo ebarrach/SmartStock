@@ -1,4 +1,7 @@
-import demo from '../../../shared/api/examples/snapshot.json';
+import demo from '../../../shared/api/examples/demo-snapshot.json';
+import demoCatalog from '../../../shared/api/examples/demo-catalog.json';
+import analyses from '../../../shared/api/examples/demo-analytics.json';
+import { AnalysisReport, parseAnalysis, CatalogDefinition } from './analysis';
 
 export type Product = Readonly<{
   id: string;
@@ -21,6 +24,10 @@ export type Movement = Readonly<{
   quantityAfter: number;
   occurredAt: string;
   eventId: string;
+  productId?: string;
+  kind?: string;
+  source?: string;
+  reason?: string;
 }>;
 export type Reading = Readonly<{
   kind: string;
@@ -44,6 +51,8 @@ export type Snapshot = Readonly<{
 export interface StockRepository {
   readonly mode: 'simulated' | 'api';
   load(signal?: AbortSignal): Promise<Snapshot>;
+  catalogue?(): Promise<CatalogDefinition>;
+  analyse?(months: number, signal?: AbortSignal): Promise<AnalysisReport>;
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -121,14 +130,56 @@ export function parseSnapshot(value: unknown): Snapshot {
   return data as unknown as Snapshot;
 }
 
+function parseCatalogue(value: unknown): CatalogDefinition {
+  const catalog = value as CatalogDefinition;
+  if (
+    !catalog ||
+    typeof catalog.exampleData !== 'boolean' ||
+    !Array.isArray(catalog.entries)
+  )
+    throw Error('Catalogue API invalide');
+  parseSnapshot({
+    products: catalog.entries.map(e => e.product),
+    batches: [],
+    movements: [],
+    readings: [],
+    alerts: [],
+    simulated: catalog.exampleData,
+  });
+  for (const e of catalog.entries)
+    if (
+      typeof e.category !== 'string' ||
+      typeof e.unit !== 'string' ||
+      ![
+        e.targetQuantity,
+        e.leadDays,
+        e.packSize,
+        e.coverageDays,
+        e.safetyDays,
+      ].every(v => Number.isInteger(v) && v >= 0) ||
+      e.packSize === 0 ||
+      e.coverageDays === 0
+    )
+      throw Error('Parametres catalogue invalides');
+  return catalog;
+}
 export class MockStockRepository implements StockRepository {
   readonly mode = 'simulated' as const;
+  async catalogue(): Promise<CatalogDefinition> {
+    return parseCatalogue(demoCatalog);
+  }
+  async analyse(months: number): Promise<AnalysisReport> {
+    return parseAnalysis(analyses[String(months) as keyof typeof analyses]);
+  }
   async load(): Promise<Snapshot> {
     return parseSnapshot(JSON.parse(JSON.stringify(demo)));
   }
 }
 export class ApiStockRepository implements StockRepository {
   readonly mode = 'api' as const;
+  async catalogue(): Promise<CatalogDefinition> {
+    return parseCatalogue(await this.request('/catalog'));
+  }
   constructor(
     private readonly baseUrl: string,
     private readonly transport: typeof fetch = globalThis.fetch.bind(
@@ -136,6 +187,14 @@ export class ApiStockRepository implements StockRepository {
     ),
   ) {}
   async load(signal?: AbortSignal): Promise<Snapshot> {
+    return parseSnapshot(await this.request('/snapshot', signal));
+  }
+  async analyse(months: number, signal?: AbortSignal): Promise<AnalysisReport> {
+    return parseAnalysis(
+      await this.request('/analytics?months=' + months, signal),
+    );
+  }
+  private async request(path: string, signal?: AbortSignal): Promise<unknown> {
     const controller = new AbortController();
     const abort = () => controller.abort();
     if (signal?.aborted) {
@@ -145,13 +204,13 @@ export class ApiStockRepository implements StockRepository {
     const timer = setTimeout(abort, 5000);
     try {
       const response = await this.transport(
-        `${this.baseUrl.replace(/\/$/, '')}/api/v1/snapshot`,
+        `${this.baseUrl.replace(/\/$/, '')}/api/v1${path}`,
         { signal: controller.signal, headers: { Accept: 'application/json' } },
       );
       if (!response.ok) {
         throw new Error(`Service indisponible (HTTP ${response.status})`);
       }
-      return parseSnapshot(await response.json());
+      return response.json();
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', abort);
