@@ -131,7 +131,9 @@ export class ApiStockRepository implements StockRepository {
   readonly mode = 'api' as const;
   constructor(
     private readonly baseUrl: string,
-    private readonly transport: typeof fetch = fetch,
+    private readonly transport: typeof fetch = globalThis.fetch.bind(
+      globalThis,
+    ),
   ) {}
   async load(signal?: AbortSignal): Promise<Snapshot> {
     const controller = new AbortController();

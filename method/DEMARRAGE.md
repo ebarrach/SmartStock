@@ -17,7 +17,7 @@ java -jar target/scala-2.13/smartstock-agent.jar --demo
 - Stock et alertes : <http://127.0.0.1:8081/api/v1/snapshot>.
 - Retrait et ventilation : moteur Scala/Akka local, sans service externe.
 
-## 2. Mobile — Node ≥ 22.11, npm, SDK Android
+## 2. Mobile — Node ≥ 22.12, npm, SDK Android
 
 ```powershell
 cd code/mobile-app
@@ -30,6 +30,30 @@ Dans un autre terminal, même dossier :
 ```powershell
 npm run android
 ```
+
+Metro utilise **8082**, l’API **8081** : les deux services peuvent tourner ensemble.
+
+### Version PC / tablette dans le navigateur
+
+Depuis `code/mobile-app/` :
+
+```powershell
+npm run web
+```
+
+Ouvrir <http://127.0.0.1:5173>. Dans l’en-tête → Connexion → Adresse de l’API,
+entrer `/agent` et connecter. Le proxy Vite rejoint l’API locale sur 8081.
+`npm run build:web` produit le build partagé dans `dist/`.
+
+Sur téléphone Android en USB, si `adb` est installé :
+
+```powershell
+adb reverse tcp:8081 tcp:8081
+```
+
+L’adresse API dans l’application devient `http://127.0.0.1:8081`.
+Sur réseau Wi-Fi, utiliser l’adresse HTTPS accessible du poste/Pi ; le bind
+loopback par défaut ne permet pas un accès direct depuis un autre appareil.
 
 Dans `code/mobile-app/app.json`, définir `apiBaseUrl` puis relancer l’application :
 

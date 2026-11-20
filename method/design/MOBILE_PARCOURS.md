@@ -1,5 +1,36 @@
 # Parcours et maquettes mobiles — SS-003
 
+## Interface actuelle — 20/11/2026
+
+Le HTML du groupe fournit l’identité bleu nuit/turquoise. La même application
+React Native utilise une navigation inférieure sur téléphone et une barre
+latérale sur tablette/PC. Composants, champs et cartes partagent `src/ui/theme.ts`.
+
+| Écran | Vérification attendue |
+| --- | --- |
+| Tableau de bord | Stock armoire, dernières température/humidité/ventilation ; date des mesures ; absence explicite si indisponible |
+| Stock | Recherche nom/lot, filtre stock faible, cartes mobiles et colonnes larges ; aucun lot du sac |
+| Produit/lot | Quantité et péremption du snapshot courant, DataMatrix ; détail actualisé après polling |
+| Mouvements/Alertes | Données du repository ; données historiques du sac filtrées, jamais purgées |
+| Connexion | Depuis l’en-tête, URL validée, chargement, erreur, réessai ; aucun repli implicite vers la démo |
+| Démonstration | Activation explicite et commandes de chargement/vide ; aucune écriture réelle |
+
+`App.tsx` expose `SmartStockApp`, qui assemble `Navigation`, `InventoryScreens`
+et les composants partagés. `useInventory` réutilise `StockRepository` et
+`ApiStockRepository`. Les adaptateurs `.web` isolent Lucide, le logo et les
+zones de sécurité sans dupliquer les écrans ni utiliser une WebView.
+Les lectures et détails existent ; les corrections restent des opérations de
+l’API, aucune confirmation de correction fictive n’est affichée dans le mobile.
+
+### Perspective pour le rapport
+
+Le sac et ses communications BLE sont une évolution future, hors parcours
+opérationnel actuel. Les lots, mouvements et contrats historiques sont conservés.
+La caméra/scanner natif, le BLE, le câblage et la calibration exigent des travaux
+et recettes dédiés ; les captures navigateur ne prouvent pas une recette native.
+
+## Historique du socle S1
+
 Le squelette React Native 0.81.5 / React 19.1 / TypeScript vient du template
 Community CLI 20.0.2. Android et iOS sont conservés pour permettre une intégration
 native BLE ultérieure. Le lockfile npm fixe les dépendances installées.

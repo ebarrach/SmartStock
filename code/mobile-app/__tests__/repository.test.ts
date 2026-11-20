@@ -4,6 +4,25 @@ import {
   parseSnapshot,
 } from '../src/data/repository';
 
+test('le fetch navigateur conserve son contexte global', async () => {
+  const original = globalThis.fetch;
+  const snapshot = await new MockStockRepository().load();
+  globalThis.fetch = jest.fn(function (this: unknown) {
+    expect(this).toBe(globalThis);
+    return Promise.resolve({
+      ok: true,
+      json: async () => snapshot,
+    } as Response);
+  });
+  try {
+    await expect(
+      new ApiStockRepository('http://localhost:8081').load(),
+    ).resolves.toEqual(snapshot);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test('le mock respecte le contrat de snapshot et conserve les lots separes', async () => {
   const snapshot = await new MockStockRepository().load();
   expect(snapshot.simulated).toBe(true);
