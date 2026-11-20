@@ -6,7 +6,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.util.Timeout
 import smartstock.api.ApiServer
 import smartstock.inventory._
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import java.time.Clock
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -15,6 +15,14 @@ import smartstock.inventory.InventoryJson._
 
 object ServiceMain {
   def main(args: Array[String]): Unit = {
+    val path = Paths.get(
+      if (args.contains("--demo"))
+        sys.env.getOrElse("SMARTSTOCK_DEMO_DATA", "data/demo-inventory.json")
+      else sys.env.getOrElse("SMARTSTOCK_DATA", "data/inventory.json")
+    )
+    InventoryProcessLock.withLock(path)(storage => run(args, storage))
+  }
+  private def run(args: Array[String], storage: Path): Unit = {
     val demo = args.contains("--demo")
     def setting(name: String, fallback: Double): Double =
       sys.env.get(name).map(_.toDouble).getOrElse(fallback)
@@ -33,10 +41,7 @@ object ServiceMain {
     val port = sys.env.getOrElse("SMARTSTOCK_PORT", "8081").toInt
     require(port >= 0 && port <= 65535, "Invalid API port")
     val store = new FileInventoryStore(
-      Paths.get(
-        if (demo) sys.env.getOrElse("SMARTSTOCK_DEMO_DATA", "data/demo-inventory.json")
-        else sys.env.getOrElse("SMARTSTOCK_DATA", "data/inventory.json")
-      ),
+      storage,
       allowExamples = demo
     )
     val catalogPath = Paths.get(

@@ -45,14 +45,16 @@ Tableau de bord et détail produit → **Graphiques** (produit, période, mouvem
 - Connexion → Adresse de l’API : `/agent` sur le serveur web de développement,
   `http://10.0.2.2:8081` sur émulateur Android. Le proxy Vite transmet `/agent`
   vers `http://127.0.0.1:8081` et évite une configuration CORS de développement.
-- La connexion choisie dans l’écran s’applique à la session. `app.json` définit
-  le repository au prochain démarrage (`apiBaseUrl: null` = démo explicite).
+- La connexion et le choix Démo/API sont mémorisés et restaurés au redémarrage.
+  `app.json` définit le choix initial en l’absence de configuration enregistrée.
 - Un hébergement web de production doit fournir le même proxy HTTPS `/agent`
   ou une API HTTPS autorisant l’origine du site. `vite preview` vérifie le build,
   mais ne remplace pas cette configuration de déploiement.
 
 Lucide utilise `lucide-react-native`/SVG sur Android et `lucide-react` sur web.
-Seuls les adaptateurs d’icônes, logo et zones de sécurité diffèrent ; les écrans,
+Les adaptateurs d’icônes, logo, zones de sécurité et stockage de connexion diffèrent ; les écrans,
 le repository et les règles d’affichage sont communs. Le navigateur n’accède pas
 aux fonctions natives caméra/BLE : aucune action non implémentée n’est proposée.
 Le stock est consultable ; les corrections restent disponibles via l’API existante.
+
+Release Android sans Metro : voir [signature privée, Wi-Fi, pare-feu et recette](../../method/DEMARRAGE.md#5-android-autonome-et-wi-fi-local). L’APK non signé sert uniquement à la vérification du bundle ; la signature finale nécessite une clé release locale, jamais la clé debug.

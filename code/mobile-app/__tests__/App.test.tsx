@@ -5,6 +5,7 @@ import App from '../App';
 import { MockStockRepository, StockRepository } from '../src/data/repository';
 import { layoutForWidth } from '../src/ui/theme';
 import { cabinetData } from '../src/ui/InventoryScreens';
+import { saveConnection } from '../src/data/connection';
 jest.mock(
   'react-native-safe-area-context',
   () => require('react-native-safe-area-context/jest/mock').default,
@@ -58,6 +59,28 @@ async function press(label: string) {
 function text() {
   return JSON.stringify(tree.toJSON());
 }
+
+test('restaure une connexion API hors ligne après remontage sans afficher la Démo', async () => {
+  await act(async () => tree.unmount());
+  await saveConnection({ mode: 'api', url: 'http://192.168.0.3:18099' });
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = jest
+    .fn()
+    .mockRejectedValue(new TypeError('Failed to fetch'));
+  try {
+    await act(async () => {
+      tree = renderer.create(<App />);
+    });
+    expect(text()).not.toContain('Données simulées');
+    expect(text()).toContain('Serveur inaccessible');
+    await press('Connexion et paramètres');
+    expect(tree.root.findByType(TextInput).props.value).toBe(
+      'http://192.168.0.3:18099',
+    );
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
+});
 test('dashboard et navigation compacte sans sac opérationnel', async () => {
   expect(text()).toContain('Données simulées');
   expect(text()).not.toContain('Afficher le sac');

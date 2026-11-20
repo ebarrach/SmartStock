@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
   Modal,
@@ -29,6 +29,11 @@ import {
 import { layoutForWidth, theme } from './ui/theme';
 import logo from './assets/logo';
 import { AnalysisScreen, GradientSurface } from './ui/AnalysisScreen';
+import {
+  loadConnection,
+  normalizeServer,
+  saveConnection,
+} from './data/connection';
 const c = theme.colors;
 export default function SmartStockApp({
   repository = demoRepository,
@@ -43,8 +48,10 @@ export default function SmartStockApp({
     setScreen('Suggestions');
   };
   const [override, setOverride] = useState<StockRepository | null>(null);
+  const [restoring, setRestoring] = useState(true);
   const active = override ?? repository;
-  const data = useInventory(active);
+  const data = useInventory(active, !restoring);
+  const [lastServer, setLastServer] = useState('');
   const [screen, setScreen] = useState<Destination>('Tableau de bord'),
     [batchId, setBatchId] = useState(''),
     [url, setUrl] = useState(''),
@@ -56,27 +63,49 @@ export default function SmartStockApp({
     wide = layout.navigation === 'sidebar',
     demo = active.mode === 'simulated';
   const navigate = (destination: Destination) => setScreen(destination);
-  const connect = () => {
-    try {
-      if (
-        !/^https?:\/\//i.test(url.trim()) &&
-        !(Platform.OS === 'web' && url.trim() === '/agent')
-      ) {
-        throw Error(
-          'Indiquez une URL HTTP/HTTPS complète ou /agent sur le navigateur.',
+  useEffect(() => {
+    let mounted = true;
+    loadConnection(Platform.OS === 'web')
+      .then(saved => {
+        if (!mounted || !saved) return;
+        setUrl(saved.url);
+        setLastServer(saved.url);
+        setOverride(
+          saved.mode === 'api'
+            ? new ApiStockRepository(saved.url)
+            : demoRepository,
         );
-      }
-      const parsed = new URL(
-        url.trim(),
-        Platform.OS === 'web' ? 'http://localhost' : undefined,
-      );
-      if (
-        !['http:', 'https:'].includes(parsed.protocol) ||
-        parsed.username ||
-        parsed.password
-      )
-        throw Error('URL HTTP ou HTTPS sans identifiants requise');
-      setOverride(new ApiStockRepository(url.trim().replace(/\/$/, '')));
+      })
+      .catch(() => {
+        if (mounted) {
+          setOverride({
+            mode: 'api',
+            load: async () => {
+              throw Error(
+                'Connexion enregistrée illisible. Configurez le serveur dans Connexion.',
+              );
+            },
+          });
+          setConfigError(
+            'Impossible de restaurer la connexion. Aucun remplacement par des données fictives.',
+          );
+          setScreen('Connexion');
+        }
+      })
+      .finally(() => {
+        if (mounted) setRestoring(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  const connect = async () => {
+    try {
+      const address = normalizeServer(url, Platform.OS === 'web');
+      await saveConnection({ mode: 'api', url: address });
+      setUrl(address);
+      setLastServer(address);
+      setOverride(new ApiStockRepository(address));
       setConfigError('');
       setEmpty(false);
       setDemoLoading(false);
@@ -93,6 +122,14 @@ export default function SmartStockApp({
     : data.synced
     ? 'API connectée'
     : 'Non connecté';
+  if (restoring)
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}>
+          <Loading />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}>
@@ -316,10 +353,21 @@ export default function SmartStockApp({
                     {!demo ? (
                       <Action
                         label="Activer le mode démo"
-                        onPress={() => {
-                          setOverride(demoRepository);
-                          setEmpty(false);
-                          setDemoLoading(false);
+                        onPress={async () => {
+                          try {
+                            await saveConnection({
+                              mode: 'demo',
+                              url: lastServer,
+                            });
+                            setOverride(demoRepository);
+                            setEmpty(false);
+                            setDemoLoading(false);
+                            setConfigError('');
+                          } catch {
+                            setConfigError(
+                              'Impossible de mémoriser le mode Démo',
+                            );
+                          }
                         }}
                       />
                     ) : (

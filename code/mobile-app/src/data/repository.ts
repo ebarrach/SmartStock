@@ -210,7 +210,17 @@ export class ApiStockRepository implements StockRepository {
       if (!response.ok) {
         throw new Error(`Service indisponible (HTTP ${response.status})`);
       }
-      return response.json();
+      return await response.json();
+    } catch (error) {
+      if (controller.signal.aborted && !signal?.aborted)
+        throw new Error(
+          'Délai dépassé (5 s). Vérifiez le Wi-Fi et le serveur, puis réessayez.',
+        );
+      if (error instanceof Error && error.name === 'TypeError')
+        throw new Error(
+          'Serveur inaccessible. Vérifiez le Wi-Fi, l’adresse et le pare-feu.',
+        );
+      throw error;
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', abort);

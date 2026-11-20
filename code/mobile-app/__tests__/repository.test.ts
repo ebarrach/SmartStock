@@ -4,6 +4,45 @@ import {
   parseSnapshot,
 } from '../src/data/repository';
 
+test('delai reseau explicite puis reprise API sans donnees fictives', async () => {
+  const snapshot = {
+    ...(await new MockStockRepository().load()),
+    simulated: false,
+  };
+  let available = false;
+  const transport = jest.fn((_url: unknown, init?: RequestInit) => {
+    if (available)
+      return Promise.resolve({
+        ok: true,
+        json: async () => snapshot,
+      } as Response);
+    return new Promise<Response>((_resolve, reject) =>
+      init?.signal?.addEventListener('abort', () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      }),
+    );
+  });
+  jest.useFakeTimers();
+  try {
+    const repository = new ApiStockRepository(
+      'http://192.168.0.143:18099',
+      transport,
+    );
+    const pending = repository.load().then(
+      () => '',
+      (error: Error) => error.message,
+    );
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(await pending).toContain('Délai dépassé');
+    available = true;
+    await expect(repository.load()).resolves.toEqual(snapshot);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test('le fetch navigateur conserve son contexte global', async () => {
   const original = globalThis.fetch;
   const snapshot = await new MockStockRepository().load();
