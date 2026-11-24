@@ -1,0 +1,2 @@
+# PDF streams and xref offsets must never undergo line-ending conversion.
+*.pdf binary

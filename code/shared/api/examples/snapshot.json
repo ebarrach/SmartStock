@@ -1,0 +1,59 @@
+{
+  "products": [
+    {
+      "id": "compresses",
+      "name": "Compresses",
+      "dataMatrix": "demo-compresses",
+      "unitWeightGrams": 10,
+      "minStock": 5
+    }
+  ],
+  "batches": [
+    {
+      "id": "LOT-C",
+      "productId": "compresses",
+      "location": "cabinet",
+      "quantity": 40,
+      "expiresOn": "2027-06-30"
+    },
+    {
+      "id": "LOT-S",
+      "productId": "compresses",
+      "location": "bag",
+      "quantity": 4,
+      "expiresOn": "2027-06-30"
+    }
+  ],
+  "movements": [
+    {
+      "id": "65a09731-8711-4bfe-b45b-e6443add6a74",
+      "batchId": "LOT-C",
+      "delta": 40,
+      "quantityAfter": 40,
+      "occurredAt": "2026-10-29T09:00:00Z",
+      "eventId": "fe3b67fb-4a16-4426-84e0-ae74ae75b220"
+    }
+  ],
+  "readings": [
+    {
+      "kind": "temperature.measured",
+      "value": 20,
+      "source": "demo",
+      "observedAt": "2026-10-29T09:00:00Z"
+    },
+    {
+      "kind": "humidity.measured",
+      "value": 50,
+      "source": "demo",
+      "observedAt": "2026-10-29T09:00:00Z"
+    }
+  ],
+  "alerts": [
+    {
+      "code": "demo_low_stock",
+      "subjectId": "LOT-S",
+      "message": "Exemple : stock du sac faible (4 boîtes)."
+    }
+  ],
+  "simulated": true
+}

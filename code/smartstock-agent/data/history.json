@@ -1,0 +1,9 @@
+[
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-11-08T16:37:42.220211400Z",
+    "batchId": "05400581010569-305761"
+  }
+]

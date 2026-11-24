@@ -16,11 +16,17 @@ jobs:
           echo "Contenu de doc/ :"
           ls -R doc
 
+      - name: Reject empty PDF placeholders
+        run: |
+          test -s doc/UserGuide/PDF/UserGuide.pdf
+          test -s doc/ProgrammerGuide/PDF/ProgrammerGuide.pdf
+
       - name: Upload UserGuide & ProgrammerGuide PDFs
+        # File presence alone is not proof of usable documentation.
         uses: actions/upload-artifact@v4
         with:
           name: guides-pdf
           path: |
             doc/UserGuide/PDF/UserGuide.pdf
             doc/ProgrammerGuide/PDF/ProgrammerGuide.pdf
-          if-no-files-found: ignore
+          if-no-files-found: error

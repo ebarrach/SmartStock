@@ -1,4 +1,26 @@
 # SmartStock
+
+> **État vérifié au 29/10/2026 : socles et simulations du Jalon 1.**
+> Raspberry Pi 3 Model B ; DataMatrix ; agent Scala/Akka intermédiaire.
+> Les fonctionnalités listées plus bas décrivent les objectifs du produit,
+> pas des fonctionnalités toutes implémentées. Wi-Fi/BLE et matériel ne sont
+> pas validés physiquement. Les deux démonstrations Anemone ont été exécutées
+> avec le moteur réel : voir [modèles et preuves](method/design/anemone/README.md).
+>
+> [Audit et décisions S1](method/analysis/2026-10-29%20–%20JALON_1_CADRAGE.md) ·
+> [Critères MVP](method/analysis/2026-10-29%20–%20MVP_ACCEPTANCE.md) ·
+> [Matrice de tests](method/analysis/2026-10-29%20–%20QUALITY_MATRIX.md)
+>
+> Scala : JDK 21, `cd code/smartstock-agent`, puis `sbt compile`,
+> `sbt scalafmtCheckAll`, `sbt test`, `sbt run` (simulation avec arrêt automatique).
+> Sélectionner JAVA_HOME sur JDK 21 si la machine utilise Java 8 par défaut.
+> Mobile : `cd code/mobile-app`, `npm ci`, puis les commandes de son README.
+> Simulation connectivité depuis la racine :
+> `python -m pip install -r code/connectivity/requirements-test.txt`, puis
+> `python -m unittest discover -s code/connectivity -v`.
+> Les guides PDF historiques sont encore des fichiers vides ; les Markdown datés
+> constituent les livrables de cadrage utilisables.
+
 Smart Medication Cabinet
 ------------------------------------------------------------
 📘 Official Documentation
@@ -130,7 +152,7 @@ From the mobile application directory:
 
 ```bash
 cd code/mobile-app
-npm install
+npm ci
 npm start
 ```
 
@@ -140,8 +162,8 @@ The communication contract is defined in:
 
 `code/shared/api/openapi.yaml`
 
-The API specification is used as the common interface between the different
-SmartStock software components.
+The API specification is planned as the common interface. The file is currently
+empty (SS-007, sprint S2). The S1 event container is in code/shared/events/.
 
 ------------------------------------------------------------
 👩‍💻 Academic Context

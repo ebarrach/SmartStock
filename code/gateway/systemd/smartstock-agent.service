@@ -1,0 +1,22 @@
+[Unit]
+Description=SmartStock Scala event and inventory service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=smartstock
+WorkingDirectory=/opt/smartstock/code/smartstock-agent
+Environment=SMARTSTOCK_DATA=/var/lib/smartstock/inventory.json
+Environment=SMARTSTOCK_BIND=127.0.0.1
+Environment=SMARTSTOCK_PORT=8081
+EnvironmentFile=-/etc/smartstock.env
+ExecStart=/opt/java21/bin/java -Xms64m -Xmx256m -jar /opt/smartstock/code/smartstock-agent/target/scala-2.13/smartstock-agent.jar
+StateDirectory=smartstock
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
