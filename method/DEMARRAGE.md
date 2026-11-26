@@ -1,5 +1,7 @@
 # SmartStock — démarrage local
 
+Raccordement MQTT en cours sur la branche d’intégration : [INTEGRATION_MQTT.md](INTEGRATION_MQTT.md) (Phidget/MKR/QRbot, diagnostic brut et protocole de capture explicite). Ne pas assimiler la recette logicielle au test du matériel.
+
 Commandes PowerShell depuis la racine du dépôt. Agent et mobile dans des terminaux séparés.
 
 ## 1. Agent/API — JDK 21 et sbt

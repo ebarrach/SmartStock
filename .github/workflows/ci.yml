@@ -42,6 +42,18 @@ jobs:
       - name: Package standalone agent
         run: sbt assembly
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MQTT integration test dependencies
+        working-directory: .
+        run: python -m pip install -r code/connectivity/requirements-mqtt-test.txt
+
+      - name: Test real local MQTT broker and persistent API
+        working-directory: .
+        run: python code/connectivity/mqtt_smoke.py --jar code/smartstock-agent/target/scala-2.13/smartstock-agent.jar
+
   mobile-quality-and-tests:
     name: React Native - Quality & Tests
     runs-on: ubuntu-latest
@@ -85,3 +97,4 @@ jobs:
       - run: python -m pip install -r code/connectivity/requirements-test.txt
       - run: python -m unittest discover -s code/connectivity -v
       - run: python -m unittest discover -s code/gateway -v
+      - run: python -m unittest discover -s code/raspberry -v

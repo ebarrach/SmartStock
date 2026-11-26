@@ -14,12 +14,64 @@ class StockInputsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   implicit val ec: scala.concurrent.ExecutionContext = system.executionContext
   val initial = Inventory(
     products = Vector(Product("compresses", "Compresses", "DM-C", 10, 5)),
-    batches = Vector(Batch("LOT-C", "compresses", "cabinet", 40, "2027-06-30"))
+    batches = Vector(
+      Batch(
+        "LOT-C",
+        "compresses",
+        "cabinet",
+        40,
+        "2027-06-30",
+        Some("C"),
+        "historical-uninventoried",
+        "Inventaire historique sans series initiales"
+      )
+    )
   )
   def input(op: String, kind: String, value: JsValue, seq: Long, at: Long): SensorRecord =
     SensorRecord(UUID.randomUUID().toString, op, "cabinet-01", "LOT-C", kind, value, seq, at)
 
   "StockInputs" should {
+    "tracer une presence initiale inconnue et conserver la presence unitaire apres redemarrage" in {
+      val file = Files.createTempDirectory("serial-ledger").resolve("inventory.json")
+      val store = new FileInventoryStore(file)
+      store.save(initial)
+      var actor = spawn(InventoryActor(store))
+      var pipeline = new StockInputs(actor)(system, ec)
+      var sequence = 0L
+      def operation(serial: String, grams: Int): Either[DomainError, Boolean] = {
+        val op = UUID.randomUUID().toString
+        sequence += 1
+        val scan = input(
+          op,
+          "datamatrix.detected",
+          JsObject("code" -> JsString("DM-C"), "serial" -> JsString(serial)),
+          sequence,
+          1000
+        )
+        assert(Await.result(pipeline.submit(scan), 5.seconds) == Right(false))
+        sequence += 1
+        Await.result(
+          pipeline.submit(input(op, "weight.changed", JsNumber(grams), sequence, 1100)),
+          5.seconds
+        )
+      }
+      assert(operation("UNIT-1", -10) == Right(true))
+      assert(store.load().movements.last.initialPresenceUnknown)
+      assert(store.load().movements.last.serial.contains("UNIT-1"))
+      testKit.stop(actor)
+      actor = spawn(InventoryActor(new FileInventoryStore(file)))
+      pipeline = new StockInputs(actor)(system, ec)
+      assert(operation("UNIT-1", -10).left.toOption.get.code == "serial_state_conflict")
+      assert(store.load().batches.head.quantity == 39)
+      assert(operation("UNIT-2", -10) == Right(true))
+      assert(operation("UNIT-1", 10) == Right(true))
+      assert(!store.load().movements.last.initialPresenceUnknown)
+      assert(operation("UNIT-1", 10).left.toOption.get.code == "serial_state_conflict")
+      assert(operation("UNIT-1", -20).isLeft)
+      assert(store.load().batches.head.quantity == 39)
+      testKit.stop(actor)
+      Files.delete(file); Files.delete(file.getParent)
+    }
     "reprendre un couple persiste apres redemarrage sans doubler le mouvement" in {
       val directory = Files.createTempDirectory("stock-inputs")
       val file = directory.resolve("inventory.json")

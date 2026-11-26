@@ -895,7 +895,7 @@
     "/api/v1/events": {
       "post": {
         "operationId": "receiveEvent",
-        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine.",
+        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine. DataMatrix accepte serial optionnel (1..20 caracteres). Une serie ne represente qu une unite. Premier retrait de serie inconnue autorise avec initialPresenceUnknown=true dans le mouvement. Retrait repete ou entree repetee refuses selon le journal persistant. Les anciens evenements sans serie restent compatibles et ne prouvent pas une presence unitaire. Reprise strictement limitee aux lots explicitement historical-uninventoried, avec lotCode et justification persistes. Lot non classe ou inventoried: serie inconnue refusee. Scan serialise: lot et expiration facultatifs verifies contre le lot physique unique. Le retrait initial trace presence initiale inconnue — retrait valide, sans entree fictive.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1043,6 +1043,241 @@
           }
         ]
       }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Compatibilite historique : sante",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Lecture du stockage canonique, sans moteur historique concurrent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory": {
+      "get": {
+        "summary": "Compatibilite historique : quantites des lots de l armoire",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Lecture du stockage canonique, sans moteur historique concurrent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "stock"
+                  ],
+                  "properties": {
+                    "stock": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expirations": {
+      "get": {
+        "summary": "Compatibilite historique : lots expirant avant la limite, y compris deja expires",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Lecture du stockage canonique, sans moteur historique concurrent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "batchId",
+                          "gtin",
+                          "quantity",
+                          "expiration"
+                        ],
+                        "properties": {
+                          "batchId": {
+                            "type": "string"
+                          },
+                          "gtin": {
+                            "type": "string",
+                            "description": "Reference DataMatrix du produit ; aucun GTIN invente"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "expiration": {
+                            "type": "string",
+                            "format": "date"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parametre days invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3650,
+              "default": 30
+            }
+          }
+        ]
+      }
+    },
+    "/api/scans": {
+      "post": {
+        "summary": "Ancienne association implicite refusee ; utiliser les evenements v1 correles",
+        "deprecated": true,
+        "responses": {
+          "409": {
+            "description": "operation_required : aucune modification du stock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/batches/{batchId}/traceability": {
+      "put": {
+        "operationId": "configureBatchTraceability",
+        "summary": "Declare explicitement le lot physique et le statut de reprise, sans modifier les quantites",
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchTraceability"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Classification persistee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot inconnu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflit de tracabilite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ecriture non confirmee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1116,6 +1351,27 @@
           "expiresOn": {
             "type": "string",
             "format": "date"
+          },
+          "lotCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "serialInventoryStatus": {
+            "type": "string",
+            "enum": [
+              "unclassified",
+              "historical-uninventoried",
+              "inventoried"
+            ],
+            "default": "unclassified"
+          },
+          "traceabilityNote": {
+            "type": "string",
+            "maxLength": 500
           }
         }
       },
@@ -1175,6 +1431,19 @@
           },
           "reason": {
             "type": "string"
+          },
+          "serial": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 20,
+            "description": "Serie unitaire GS1 lorsqu elle est fournie par le scan valide"
+          },
+          "initialPresenceUnknown": {
+            "type": "boolean",
+            "description": "Premier mouvement de cette serie, sans inventaire initial unitaire connu. Aucun etat anterieur invente."
           }
         }
       },
@@ -1195,7 +1464,10 @@
               "infrared.detected",
               "fan.changed",
               "connection.changed",
-              "sensor.failed"
+              "sensor.failed",
+              "door.changed",
+              "weight.raw",
+              "weight.delta.raw"
             ]
           },
           "value": {
@@ -1692,6 +1964,35 @@
           "sensors"
         ],
         "additionalProperties": false
+      },
+      "BatchTraceability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lotCode",
+          "status",
+          "note"
+        ],
+        "properties": {
+          "lotCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unclassified",
+              "historical-uninventoried",
+              "inventoried"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
       }
     }
   }

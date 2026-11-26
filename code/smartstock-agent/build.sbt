@@ -12,6 +12,7 @@ assembly / assemblyMergeStrategy := {
 }
 Compile / mainClass := Some("smartstock.ServiceMain")
 libraryDependencies ++= Seq(
+  "org.eclipse.paho" % "org.eclipse.paho.client.mqttv3" % "1.2.5",
   "com.typesafe.akka" %% "akka-actor-typed" % "2.6.20",
   "io.spray" %% "spray-json" % "1.3.6",
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % "2.6.20" % Test,

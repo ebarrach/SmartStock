@@ -81,14 +81,62 @@ final class ApiServer(
       .getOrElse("")
 
   private def route(x: HttpExchange): Future[(Int, JsValue)] = {
-    val path = x.getRequestURI.getPath
+    val path = x.getRequestURI.getPath.stripSuffix("/")
     val query = Option(x.getRequestURI.getRawQuery)
     if (
-      query.nonEmpty && path != "/api/v1/analytics" && !(path == "/api/v1/stock" && query
+      query.nonEmpty && path != "/api/expirations" && path != "/api/v1/analytics" && !(path == "/api/v1/stock" && query
         .exists(q => q == "location=cabinet" || q == "location=bag"))
     )
       return Future.successful(error(DomainError("invalid_query", "Parametres inconnus")))
     (x.getRequestMethod, path) match {
+      // Read compatibility with the colleague's clients, using the same inventory actor.
+      case ("GET", "/api/health") =>
+        Future.successful(200 -> JsObject("status" -> JsString("ok")))
+      case ("GET", "/api/inventory") =>
+        snapshot().map(s =>
+          200 -> JsObject(
+            "stock" -> JsObject(
+              s.batches.filter(_.location == "cabinet").map(b => b.id -> JsNumber(b.quantity)).toMap
+            )
+          )
+        )
+      case ("GET", "/api/expirations") =>
+        val parts = query.toVector.flatMap(_.split("&")).map(_.split("=", 2))
+        require(
+          parts.size <= 1 && parts.forall(p => p.length == 2 && p(0) == "days"),
+          "Parametres expiration invalides"
+        )
+        val days = parts.headOption.map(_(1).toInt).getOrElse(30)
+        require(days >= 0 && days <= 3650, "days invalide")
+        val limit = java.time.LocalDate.now(clock).plusDays(days)
+        snapshot().map { state =>
+          val items = state.batches
+            .filter(b =>
+              b.location == "cabinet" && b.quantity > 0 && !java.time.LocalDate
+                .parse(b.expiresOn)
+                .isAfter(limit)
+            )
+            .map { b =>
+              val product = state.products.find(_.id == b.productId).get
+              JsObject(
+                "batchId" -> JsString(b.id),
+                "gtin" -> JsString(product.dataMatrix),
+                "quantity" -> JsNumber(b.quantity),
+                "expiration" -> JsString(b.expiresOn)
+              )
+            }
+          200 -> JsObject("items" -> JsArray(items))
+        }
+      case ("POST", "/api/scans") =>
+        Future.successful(
+          error(
+            DomainError(
+              "operation_required",
+              "Utiliser /api/v1/events avec operationId partage et poids calibre ; aucun scan en attente implicite",
+              409
+            )
+          )
+        )
       case ("GET", "/api/v1/health") =>
         Future.successful(
           200 -> JsObject("status" -> JsString("ok"), "simulated" -> JsBoolean(simulated))
@@ -135,10 +183,39 @@ final class ApiServer(
       case ("POST", "/api/v1/batches") =>
         val json = body(x)
         require(
-          json.fields.keySet == Set("id", "productId", "location", "quantity", "expiresOn"),
+          Set("id", "productId", "location", "quantity", "expiresOn").subsetOf(
+            json.fields.keySet
+          ) &&
+            json.fields.keySet.subsetOf(
+              Set(
+                "id",
+                "productId",
+                "location",
+                "quantity",
+                "expiresOn",
+                "lotCode",
+                "serialInventoryStatus",
+                "traceabilityNote"
+              )
+            ),
           "Champs lot invalides"
         )
         execute(RegisterBatch(json.convertTo[Batch]), commandId(x))
+      case ("PUT", p) if p.startsWith("/api/v1/batches/") && p.endsWith("/traceability") =>
+        val fields = body(x).fields
+        require(
+          fields.keySet == Set("lotCode", "status", "note"),
+          "Champs de tracabilite invalides"
+        )
+        execute(
+          ConfigureBatchTraceability(
+            p.stripPrefix("/api/v1/batches/").stripSuffix("/traceability"),
+            fields("lotCode").convertTo[String],
+            fields("status").convertTo[String],
+            fields("note").convertTo[String]
+          ),
+          commandId(x)
+        )
       case ("POST", "/api/v1/movements") =>
         val fields = body(x).fields
         require(
@@ -178,7 +255,22 @@ final class ApiServer(
         if (Set("datamatrix.detected", "weight.changed")(fields("type").convertTo[String])) {
           val kind = fields("type").convertTo[String]
           val key = if (kind == "datamatrix.detected") "code" else "grams"
-          require(data.keySet == Set("batchId", "operationId", key), "Stock event fields invalid")
+          val required = Set("batchId", "operationId", key)
+          require(
+            required.subsetOf(data.keySet) && data.keySet.subsetOf(
+              required ++
+                (if (kind == "datamatrix.detected") Set("serial", "lot", "expiration")
+                 else Set.empty[String])
+            ),
+            "Stock event fields invalid"
+          )
+          data.get("serial").foreach { value =>
+            val serial = value.convertTo[String]
+            require(
+              serial.nonEmpty && serial.length <= 20 && !serial.exists(_.isControl),
+              "Serie invalide"
+            )
+          }
           java.util.UUID.fromString(data("operationId").convertTo[String])
           if (kind == "datamatrix.detected") data(key).convertTo[String]
           else data(key).convertTo[Double]
@@ -188,7 +280,11 @@ final class ApiServer(
             fields("src").convertTo[String],
             data("batchId").convertTo[String],
             kind,
-            data(key),
+            if (Set("serial", "lot", "expiration").exists(data.contains)) JsObject(data.filter {
+              case (name, _) =>
+                Set("code", "serial", "lot", "expiration")(name)
+            })
+            else data(key),
             fields("seq").convertTo[Long],
             System.currentTimeMillis()
           )
