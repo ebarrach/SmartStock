@@ -149,6 +149,14 @@ android {
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
+        standalone {
+            // Local test APK: bundled JS, no Metro, upgrade-compatible with installed debug app.
+            // This is NOT a distribution signature; release signing above remains unchanged.
+            initWith release
+            signingConfig signingConfigs.debug
+            debuggable false
+            matchingFallbacks = ['release']
+        }
     }
 }
 

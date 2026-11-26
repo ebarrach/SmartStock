@@ -27,6 +27,34 @@ final class StockInputs(
     inventory.ask[Either[DomainError, Inventory]](InventoryActor.Execute(op, id, _))
   private def businessId(operationId: String): String =
     UUID.nameUUIDFromBytes((operationId + ":confirmed").getBytes(UTF_8)).toString
+  def confirmationId(operationId: String): String = businessId(operationId)
+
+  /** A producer must provide a real raw delta and the SAME operation/source/batch as the scan. */
+  def submitRaw(input: SensorRecord, deviceSource: String): Future[Either[DomainError, Boolean]] =
+    inventory.ask[Inventory](InventoryActor.Get.apply).flatMap { state =>
+      state.serverSettings.flatMap(_.calibration).filter(_.source == deviceSource) match {
+        case None =>
+          Future.successful(
+            Left(DomainError("calibration_required", "Calibration de cette balance requise", 409))
+          )
+        case Some(model) =>
+          val raw = input.value.convertTo[Double]
+          val grams = raw * model.gramsPerRaw
+          if (!raw.isFinite || !grams.isFinite || grams == 0)
+            Future.successful(Left(DomainError("invalid_weight", "Variation brute invalide")))
+          else
+            submit(
+              input.copy(value =
+                JsObject(
+                  "grams" -> JsNumber(grams),
+                  "rawDelta" -> JsNumber(raw),
+                  "deviceSource" -> JsString(deviceSource),
+                  "calibrationId" -> JsString(model.id)
+                )
+              )
+            )
+      }
+    }
   private def observation(input: SensorRecord): SensorInput = input.kind match {
     case "datamatrix.detected" =>
       ScanInput(
@@ -45,7 +73,10 @@ final class StockInputs(
         UUID.fromString(input.operationId),
         input.source,
         input.batchId,
-        input.value.convertTo[Double]
+        input.value match {
+          case obj: JsObject => obj.fields("grams").convertTo[Double]
+          case value         => value.convertTo[Double]
+        }
       )
   }
   def submit(input: SensorRecord): Future[Either[DomainError, Boolean]] = synchronized {
@@ -87,7 +118,16 @@ final class StockInputs(
             )
             ._2 match {
             case Left(error) =>
-              Future.successful(Left(DomainError(error.code, "Observation invalide")))
+              Future.successful(
+                Left(
+                  DomainError(
+                    error.code,
+                    if (error.code == "unit_weight_missing")
+                      "Masse unitaire non renseignee : validation scan/poids indisponible"
+                    else "Observation invalide"
+                  )
+                )
+              )
             case Right(_) =>
               execute(RecordSensor(input), input.id).flatMap {
                 case Left(error) => Future.successful(Left(error))
@@ -96,7 +136,9 @@ final class StockInputs(
                 case Right(state) =>
                   val records = state.sensorInputs.filter(r =>
                     r.operationId == input.operationId &&
-                      r.source == input.source && r.batchId == input.batchId
+                      r.source == input.source && r.batchId == input.batchId &&
+                      !state.serverSettings
+                        .exists(s => s.modeEpochMillis > 0 && r.receivedAt <= s.modeEpochMillis)
                   )
                   var correlation = CorrelationState()
                   var candidate: Either[CorrelationError, Option[StockCandidate]] = Right(None)
@@ -137,7 +179,13 @@ final class StockInputs(
                       ) match {
                         case Left(error) => Future.successful(Left(error))
                         case Right(_) =>
-                          execute(op, businessId(input.operationId)).map(_.map(_ => true))
+                          execute(
+                            ConfirmSensorStock(
+                              op,
+                              state.serverSettings.map(_.modeEpochMillis).getOrElse(0L)
+                            ),
+                            businessId(input.operationId)
+                          ).map(_.map(_ => true))
                       }
                   }
               }

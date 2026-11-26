@@ -5,7 +5,12 @@ import { Snapshot, Batch } from '../data/repository';
 import { Action, Card, Field, Message, Title } from './components';
 import { theme } from './theme';
 export function cabinetData(snapshot: Snapshot | null) {
-  const batches = snapshot?.batches.filter(b => b.location === 'cabinet') ?? [];
+  const batches =
+    snapshot?.batches.filter(
+      b =>
+        b.location === 'cabinet' &&
+        !snapshot?.archivedProductIds?.includes(b.productId),
+    ) ?? [];
   const ids = new Set(batches.map(b => b.id));
   const bagIds = new Set(
     snapshot?.batches.filter(b => b.location === 'bag').map(b => b.id),
@@ -13,7 +18,12 @@ export function cabinetData(snapshot: Snapshot | null) {
   const productIds = new Set(batches.map(b => b.productId));
   return {
     batches,
-    movements: snapshot?.movements.filter(m => ids.has(m.batchId)) ?? [],
+    movements:
+      snapshot?.movements.filter(m =>
+        snapshot.batches.some(
+          b => b.id === m.batchId && b.location === 'cabinet',
+        ),
+      ) ?? [],
     alerts:
       snapshot?.alerts.filter(
         a =>
@@ -244,7 +254,16 @@ export function ActivityScreen({
             {a.code.replace(/_/g, ' ')}
           </Text>
           <Text>{a.message}</Text>
-          <Message text={a.subjectId} />
+          <Message
+            text={
+              snapshot.products.find(
+                p =>
+                  p.id === a.subjectId.replace(/:cabinet$/, '') ||
+                  p.id ===
+                    snapshot.batches.find(b => b.id === a.subjectId)?.productId,
+              )?.name ?? a.subjectId
+            }
+          />
         </Card>
       ))}
     </>

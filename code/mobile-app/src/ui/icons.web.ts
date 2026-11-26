@@ -1,4 +1,5 @@
 export {
+  ScanLine,
   LayoutDashboard,
   Package,
   ArrowLeftRight,

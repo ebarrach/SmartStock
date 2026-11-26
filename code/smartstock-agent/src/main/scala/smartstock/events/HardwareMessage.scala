@@ -10,6 +10,7 @@ object HardwareMessage {
   sealed trait Observation
   final case class Measure(sensor: String, value: Double) extends Observation
   final case class RawWeight(direction: String, value: Long, delta: Long) extends Observation
+  final case class RawSample(value: Long) extends Observation
   final case class Door(state: String) extends Observation
   final case class Status(name: String, status: String) extends Observation
 
@@ -38,10 +39,11 @@ object HardwareMessage {
         val value = number("value"); val delta = number("delta")
         require(value.isValidLong && delta.isValidLong, "Poids brut entier requis")
         require(
-          (direction == "entry" && delta > 0) || (direction == "exit" && delta < 0),
+          (direction == "sample" && delta == 0) || (direction == "entry" && delta > 0) || (direction == "exit" && delta < 0),
           "Direction incoherente"
         )
-        RawWeight(direction, value.toLong, delta.toLong)
+        if (direction == "sample") RawSample(value.toLong)
+        else RawWeight(direction, value.toLong, delta.toLong)
       case "door" =>
         val state = data.fields.get("state").getOrElse(data.fields("value")) match {
           case JsString(s) => s

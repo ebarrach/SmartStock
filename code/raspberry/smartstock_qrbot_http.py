@@ -8,7 +8,6 @@ import secrets
 import subprocess
 import threading
 from urllib.parse import parse_qs
-import paho.mqtt.client as mqtt
 from gs1_decoder import decode_gs1, GS1Error
 
 MQTT_HOST = os.environ.get("SMARTSTOCK_MQTT_HOST", "127.0.0.1")
@@ -19,6 +18,11 @@ HTTP_PORT = int(os.environ.get("SMARTSTOCK_QRBOT_PORT", "8083"))
 
 
 def main():
+    if os.environ.get('SMARTSTOCK_QRBOT_TRANSPORT') == 'api-test':
+        from qrbot_usb import main as usb_main
+        usb_main()
+        return
+    import paho.mqtt.client as mqtt
     password = os.environ.get("SMARTSTOCK_MQTT_PASSWORD") or getpass.getpass("Mot de passe MQTT : ")
     access_token = secrets.token_urlsafe(24)
     connected = threading.Event()

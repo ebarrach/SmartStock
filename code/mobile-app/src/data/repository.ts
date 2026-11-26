@@ -7,7 +7,7 @@ export type Product = Readonly<{
   id: string;
   name: string;
   dataMatrix: string;
-  unitWeightGrams: number;
+  unitWeightGrams: number | null;
   minStock: number;
 }>;
 export type Batch = Readonly<{
@@ -49,6 +49,7 @@ export type Snapshot = Readonly<{
   readings: readonly Reading[];
   alerts: readonly Alert[];
   simulated: boolean;
+  archivedProductIds?: readonly string[];
 }>;
 export interface StockRepository {
   readonly mode: 'simulated' | 'api';
@@ -86,8 +87,8 @@ export function parseSnapshot(value: unknown): Snapshot {
     const p = record(raw);
     if (
       !strings(p, ['id', 'name', 'dataMatrix']) ||
-      !finite(p.unitWeightGrams) ||
-      Number(p.unitWeightGrams) <= 0 ||
+      (p.unitWeightGrams !== null &&
+        (!finite(p.unitWeightGrams) || Number(p.unitWeightGrams) <= 0)) ||
       !Number.isInteger(p.minStock) ||
       Number(p.minStock) < 0
     ) {

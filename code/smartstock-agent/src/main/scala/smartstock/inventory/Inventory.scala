@@ -9,9 +9,23 @@ final case class Product(
     id: String,
     name: String,
     dataMatrix: String,
-    unitWeightGrams: Double,
+    unitWeightGrams: Option[Double],
     minStock: Int
 )
+object Product {
+  def normalizeGTIN(value: String): String =
+    if (Set(8, 12, 13, 14)(value.length) && value.forall(_.isDigit) && value.forall(_ <= '9'))
+      "0" * (14 - value.length) + value
+    else value
+  def apply(
+      id: String,
+      name: String,
+      dataMatrix: String,
+      unitWeightGrams: Double,
+      minStock: Int
+  ): Product =
+    new Product(id, name, dataMatrix, Some(unitWeightGrams), minStock)
+}
 final case class Batch(
     id: String,
     productId: String,
@@ -57,7 +71,8 @@ final case class Inventory(
     sensorInputs: Vector[SensorRecord] = Vector.empty,
     baselines: Map[String, StockBaseline] = Map.empty,
     dataset: String = "real",
-    dailyMeasures: Vector[DailyMeasure] = Vector.empty
+    dailyMeasures: Vector[DailyMeasure] = Vector.empty,
+    serverSettings: Option[ServerSettings] = None
 )
 final case class DomainError(code: String, message: String, status: Int = 400)
 final case class EnvironmentLimits(
@@ -74,6 +89,26 @@ final case class EnvironmentLimits(
 final case class Alert(code: String, subjectId: String, message: String)
 
 sealed trait InventoryOperation { def fingerprint: String }
+final case class ConfirmSensorStock(operation: AdjustStock, modeEpochMillis: Long)
+    extends InventoryOperation {
+  def fingerprint: String = operation.fingerprint + ":" + modeEpochMillis
+}
+final case class SetSensorMode(withoutSensors: Boolean) extends InventoryOperation {
+  def fingerprint: String = withoutSensors.toString
+}
+final case class CaptureScaleTare(source: String) extends InventoryOperation {
+  def fingerprint: String = source
+}
+final case class CalibrateScale(source: String, referenceGrams: Double, tareId: String)
+    extends InventoryOperation {
+  def fingerprint: String =
+    JsArray(JsString(source), JsNumber(referenceGrams), JsString(tareId)).compactPrint
+}
+final case class ArchiveProduct(productId: String, expectedGTIN: String)
+    extends InventoryOperation {
+  def fingerprint: String = JsArray(JsString(productId), JsString(expectedGTIN)).compactPrint
+}
+
 final case class RegisterProduct(product: Product) extends InventoryOperation {
   def fingerprint: String = { import InventoryJson._; product.toJson.compactPrint }
 }
@@ -89,6 +124,9 @@ final case class RegisterBatch(batch: Batch) extends InventoryOperation {
       else fields
     ).compactPrint
   }
+}
+final case class EnsureEmptyBatch(batch: Batch) extends InventoryOperation {
+  def fingerprint: String = { import InventoryJson._; batch.toJson.compactPrint }
 }
 final case class ConfigureBatchTraceability(
     batchId: String,
@@ -140,7 +178,22 @@ final case class RecordSensor(input: SensorRecord) extends InventoryOperation {
 }
 
 object InventoryJson extends DefaultJsonProtocol {
-  implicit val productFormat: RootJsonFormat[Product] = jsonFormat5(Product.apply)
+  private val fullProductFormat: RootJsonFormat[Product] = jsonFormat5(
+    (
+        id: String,
+        name: String,
+        dataMatrix: String,
+        unitWeightGrams: Option[Double],
+        minStock: Int
+    ) => new Product(id, name, dataMatrix, unitWeightGrams, minStock)
+  )
+  implicit val productFormat: RootJsonFormat[Product] = new RootJsonFormat[Product] {
+    def write(product: Product): JsValue = JsObject(
+      fullProductFormat.write(product).asJsObject.fields +
+        ("unitWeightGrams" -> product.unitWeightGrams.map(JsNumber(_)).getOrElse(JsNull))
+    )
+    def read(value: JsValue): Product = fullProductFormat.read(value)
+  }
   private val fullBatchFormat = jsonFormat8(Batch.apply)
   implicit val batchFormat: RootJsonFormat[Batch] = new RootJsonFormat[Batch] {
     def write(batch: Batch): JsValue = fullBatchFormat.write(batch)
@@ -174,7 +227,12 @@ object InventoryJson extends DefaultJsonProtocol {
   implicit val readingFormat: RootJsonFormat[Reading] = jsonFormat4(Reading.apply)
   implicit val sensorFormat: RootJsonFormat[SensorRecord] = jsonFormat8(SensorRecord.apply)
   implicit val dailyMeasureFormat: RootJsonFormat[DailyMeasure] = jsonFormat7(DailyMeasure.apply)
-  private val fullInventoryFormat = jsonFormat9(Inventory.apply)
+  implicit val tareFormat: RootJsonFormat[TareCapture] = jsonFormat4(TareCapture.apply)
+  implicit val calibrationFormat: RootJsonFormat[ScaleCalibration] = jsonFormat6(
+    ScaleCalibration.apply
+  )
+  implicit val settingsFormat: RootJsonFormat[ServerSettings] = jsonFormat5(ServerSettings.apply)
+  private val fullInventoryFormat = jsonFormat10(Inventory.apply)
   implicit val inventoryFormat: RootJsonFormat[Inventory] = new RootJsonFormat[Inventory] {
     def write(state: Inventory): JsValue = fullInventoryFormat.write(state)
     def read(value: JsValue): Inventory = {
@@ -235,15 +293,49 @@ object InventoryRules {
     if (streamKey.exists(key => state.receipts.get(key).exists(_ != eventId)))
       return Left(DomainError("sequence_conflict", "Sequence deja utilisee par la source", 409))
     val result: Either[DomainError, Inventory] = operation match {
+      case ConfirmSensorStock(stock, epoch) =>
+        if (state.serverSettings.exists(s => s.withoutSensors || s.modeEpochMillis != epoch))
+          Left(
+            DomainError("sensor_mode_changed", "Mode modifie pendant l'operation : rescanner", 409)
+          )
+        else execute(state, stock, eventId, clock)
+      case mode: SetSensorMode    => ServerSettingsRules.execute(state, mode, eventId, clock)
+      case tare: CaptureScaleTare => ServerSettingsRules.execute(state, tare, eventId, clock)
+      case calibration: CalibrateScale =>
+        ServerSettingsRules.execute(state, calibration, eventId, clock)
+      case archive: ArchiveProduct => ServerSettingsRules.execute(state, archive, eventId, clock)
+      case EnsureEmptyBatch(batch) =>
+        if (batch.quantity != 0 || batch.location != "cabinet" || batch.lotCode.isEmpty)
+          invalid("Creation de lot : quantite zero et code physique requis")
+        else {
+          val matches = state.batches.filter(b =>
+            b.productId == batch.productId && b.location == batch.location &&
+              b.lotCode == batch.lotCode && b.expiresOn == batch.expiresOn
+          )
+          if (matches.size > 1)
+            Left(
+              DomainError(
+                "ambiguous_batch",
+                "Plusieurs lots physiques correspondent ; aucun lot cree",
+                409
+              )
+            )
+          else if (matches.nonEmpty) Right(state)
+          else execute(state, RegisterBatch(batch), eventId, clock)
+        }
+      case scan: ScanOnlyTest => scan.applyTo(state, eventId, clock)
       case RegisterProduct(product) =>
         if (
           !validId(product.id) || product.name.trim.isEmpty || product.name.length > 200 ||
           product.dataMatrix.trim.isEmpty || product.dataMatrix.length > 512 ||
-          !product.unitWeightGrams.isFinite || product.unitWeightGrams <= 0 || product.minStock < 0
+          product.unitWeightGrams.exists(w => !w.isFinite || w <= 0) || product.minStock < 0
         )
           invalid("Produit invalide")
         else if (
-          state.products.exists(p => p.id == product.id || p.dataMatrix == product.dataMatrix)
+          state.products.exists(p =>
+            p.id == product.id || Product.normalizeGTIN(p.dataMatrix) == Product
+              .normalizeGTIN(product.dataMatrix)
+          )
         )
           Left(DomainError("product_exists", "Produit ou DataMatrix deja enregistre", 409))
         else Right(state.copy(products = state.products :+ product))
@@ -304,7 +396,25 @@ object InventoryRules {
               state.movements.reverseIterator
                 .find(m => m.productId == batch.productId && m.serial.contains(s))
             )
-            if (
+            if (state.serverSettings.exists(_.archivedProducts.contains(batch.productId)))
+              Left(
+                DomainError(
+                  "product_archived",
+                  "Produit archive : historique conserve, aucun nouveau mouvement",
+                  409
+                )
+              )
+            else if (
+              reason == "sensor-correlation" && state.serverSettings.exists(_.withoutSensors)
+            )
+              Left(
+                DomainError(
+                  "sensors_disabled",
+                  "Mode sans capteurs : confirmation materielle refusee",
+                  409
+                )
+              )
+            else if (
               !Set("consumption", "replenishment", "correction", "loss", "expiry")(
                 kind
               ) || !validId(source) || reason.length > 500 ||
@@ -359,7 +469,9 @@ object InventoryRules {
                 kind,
                 source,
                 if (serial.nonEmpty && previousUnit.isEmpty && delta < 0)
-                  "présence initiale inconnue — retrait validé"
+                  "présence initiale inconnue — retrait validé" + (if (source == "test-no-scale")
+                                                                     "; " + reason
+                                                                   else "")
                 else reason,
                 serial,
                 serial.nonEmpty && previousUnit.isEmpty && delta < 0
@@ -374,7 +486,19 @@ object InventoryRules {
             }
           }
       case RecordSensor(input) =>
-        if (
+        if (state.serverSettings.exists(_.withoutSensors))
+          Left(
+            DomainError(
+              "sensors_disabled",
+              "Mode sans capteurs : observation de stock refusee",
+              409
+            )
+          )
+        else if (state.serverSettings.exists(_.modeEpochMillis >= input.receivedAt))
+          Left(
+            DomainError("sensor_mode_changed", "Observation anterieure au changement de mode", 409)
+          )
+        else if (
           !state.batches
             .exists(_.id == input.batchId) || Try(UUID.fromString(input.operationId)).isFailure ||
           !validId(input.source) || input.sequence < 0 || !Set(
@@ -445,24 +569,37 @@ object InventoryRules {
       limits: EnvironmentLimits = EnvironmentLimits()
   ): Vector[Alert] = {
     val today = LocalDate.now(clock)
-    val stock = state.products.flatMap { product =>
-      val batches = state.batches.filter(_.productId == product.id)
-      val locations = if (batches.isEmpty) Vector("cabinet") else batches.map(_.location).distinct
-      locations.flatMap { location =>
-        val quantity = batches.filter(_.location == location).map(_.quantity.toLong).sum
-        Option.when(quantity < product.minStock)(
-          Alert("low_stock", s"${product.id}:$location", s"$location: $quantity")
-        )
+    val stock = state.products
+      .filterNot(p => state.serverSettings.exists(_.archivedProducts.contains(p.id)))
+      .flatMap { product =>
+        val batches = state.batches.filter(_.productId == product.id)
+        val locations = if (batches.isEmpty) Vector("cabinet") else batches.map(_.location).distinct
+        locations.flatMap { location =>
+          val quantity = batches.filter(_.location == location).map(_.quantity.toLong).sum
+          Option.when(quantity < product.minStock)(
+            Alert(
+              "low_stock",
+              s"${product.id}:$location",
+              s"${product.name} : $quantity unite(s) ($location)"
+            )
+          )
+        }
       }
-    }
-    val expirations = state.batches.filter(_.quantity > 0).flatMap { batch =>
-      val expiry = LocalDate.parse(batch.expiresOn)
-      if (expiry.isBefore(today)) Some(Alert("expired", batch.id, batch.expiresOn))
-      else
-        Option.when(!expiry.isAfter(today.plusDays(30)))(
-          Alert("expiring_soon", batch.id, batch.expiresOn)
-        )
-    }
+    val expirations = state.batches
+      .filter(b =>
+        b.quantity > 0 && !state.serverSettings.exists(_.archivedProducts.contains(b.productId))
+      )
+      .flatMap { batch =>
+        val name =
+          state.products.find(_.id == batch.productId).map(_.name).getOrElse(batch.productId)
+        val expiry = LocalDate.parse(batch.expiresOn)
+        if (expiry.isBefore(today))
+          Some(Alert("expired", batch.id, s"$name : perime le ${batch.expiresOn}"))
+        else
+          Option.when(!expiry.isAfter(today.plusDays(30)))(
+            Alert("expiring_soon", batch.id, s"$name : peremption le ${batch.expiresOn}")
+          )
+      }
     val environment =
       state.readings.groupBy(r => r.source -> r.kind).values.toVector.flatMap { readings =>
         val r = readings.last
@@ -485,5 +622,95 @@ object InventoryRules {
         code.map(c => Alert(c, r.source, s"${r.kind}: ${r.value}"))
       }
     stock ++ expirations ++ environment
+  }
+}
+
+final case class ScanOnlyTest(
+    gtin: String,
+    lot: String,
+    expiration: String,
+    serial: Option[String],
+    direction: String,
+    settings: ScanOnlySettings
+) extends InventoryOperation {
+  def fingerprint: String = JsArray(
+    JsString(gtin),
+    JsString(lot),
+    JsString(expiration),
+    serial.map(JsString(_)).getOrElse(JsNull),
+    JsString(direction)
+  ).compactPrint
+
+  def applyTo(state: Inventory, id: String, clock: Clock): Either[DomainError, Inventory] = {
+    def reject(code: String, message: String) = Left(DomainError(code, message, 409))
+    val effective = state.serverSettings match {
+      case Some(config) =>
+        if (config.withoutSensors) None
+        else
+          Some(DomainError("scan_only_disabled", "Mode avec capteurs : poids correle requis", 409))
+      case None => settings.refusal(state, clock)
+    }
+    effective match {
+      case Some(error) => return Left(error)
+      case None        => ()
+    }
+    if (!Set("auto", "entry", "exit")(direction))
+      return reject("invalid_direction", "Choisir auto, entry ou exit")
+    val products =
+      state.products.filter(p => Product.normalizeGTIN(p.dataMatrix) == Product.normalizeGTIN(gtin))
+    if (products.exists(p => state.serverSettings.exists(_.archivedProducts.contains(p.id))))
+      return reject("product_archived", "Produit archive : aucun mouvement")
+    if (products.isEmpty)
+      return reject(
+        "unknown_product",
+        "Produit non enregistre : une fiche doit etre confirmee avant tout mouvement"
+      )
+    if (products.size > 1)
+      return reject("ambiguous_product", "Plusieurs fiches correspondent au GTIN : aucun mouvement")
+    val product = products.head
+    val batches = state.batches.filter(b =>
+      b.productId == product.id && b.location == "cabinet" &&
+        b.expiresOn == expiration && b.lotCode.contains(lot)
+    )
+    if (batches.isEmpty)
+      return reject(
+        "new_batch",
+        s"Produit connu : ${product.name}. Ce lot n'est pas encore enregistre"
+      )
+    if (batches.size > 1)
+      return reject("ambiguous_batch", "Plusieurs lots correspondent : aucun mouvement")
+    val batch = batches.head
+    val previous = serial.flatMap(s =>
+      state.movements.reverseIterator.find(m => m.productId == product.id && m.serial.contains(s))
+    )
+    if (previous.exists(_.batchId != batch.id))
+      return reject("serial_batch_conflict", "Serie connue dans un autre lot")
+    val selected =
+      if (direction != "auto") direction
+      else
+        previous match {
+          case Some(m) => if (m.delta > 0) "exit" else "entry"
+          case None =>
+            return reject(
+              "presence_unknown",
+              "Presence individuelle inconnue : choisir explicitement ajout ou retrait ; aucune bascule automatique"
+            )
+        }
+    val reason =
+      s"test sans balance; scan=$gtin/$lot/${serial.getOrElse("sans-serie")}; direction=$selected; quantite=1; operation=$id"
+    InventoryRules.execute(
+      state,
+      AdjustStock(
+        batch.id,
+        if (selected == "entry") 1 else -1,
+        Some(batch.quantity),
+        if (selected == "entry") "replenishment" else "consumption",
+        "test-no-scale",
+        reason,
+        serial
+      ),
+      id,
+      clock
+    )
   }
 }

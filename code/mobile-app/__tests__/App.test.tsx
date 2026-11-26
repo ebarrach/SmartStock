@@ -10,6 +10,12 @@ jest.mock(
   'react-native-safe-area-context',
   () => require('react-native-safe-area-context/jest/mock').default,
 );
+jest.mock('../src/scanner/CameraPreview', () => ({
+  CameraPreview: () => null,
+}));
+jest.mock('../src/scanner/identifiers', () => ({
+  operationUUID: () => '00000000-0000-4000-8000-000000000001',
+}));
 jest.mock('../src/ui/svg', () => {
   const { View } = require('react-native');
   return {
@@ -35,6 +41,7 @@ jest.mock('../src/ui/icons', () =>
       'RefreshCw',
       'BarChart3',
       'ShoppingCart',
+      'ScanLine',
     ].map(name => [name, () => null]),
   ),
 );

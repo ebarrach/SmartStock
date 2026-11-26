@@ -28,6 +28,8 @@ import {
 } from './ui/InventoryScreens';
 import { layoutForWidth, theme } from './ui/theme';
 import logo from './assets/logo';
+import { ServerSettingsPanel } from './ui/ServerSettingsPanel';
+import { ScannerScreen } from './scanner/ScannerScreen';
 import { AnalysisScreen, GradientSurface } from './ui/AnalysisScreen';
 import {
   loadConnection,
@@ -41,6 +43,7 @@ export default function SmartStockApp({
   repository?: StockRepository;
 }) {
   const [graphProduct, setGraphProduct] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [returnScreen, setReturnScreen] =
     useState<Destination>('Tableau de bord');
   const openSuggestions = () => {
@@ -134,7 +137,14 @@ export default function SmartStockApp({
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}>
         <View style={{ flex: 1, flexDirection: 'row' }}>
-          {wide && <Navigation wide active={screen} onSelect={navigate} />}
+          {wide && (
+            <Navigation
+              wide
+              active={screen}
+              onSelect={navigate}
+              onScan={() => setScannerOpen(true)}
+            />
+          )}
           <View style={{ flex: 1, minWidth: 0 }}>
             <View
               style={{
@@ -323,6 +333,12 @@ export default function SmartStockApp({
                     )}
                   </>
                 )}
+                {screen === 'Connexion' && !demo && (
+                  <ServerSettingsPanel
+                    baseUrl={lastServer}
+                    onChanged={data.refresh}
+                  />
+                )}
                 {screen === 'Connexion' && (
                   <Card>
                     <Title>Connexion à l’armoire</Title>
@@ -403,8 +419,27 @@ export default function SmartStockApp({
           </View>
         </View>
         {!wide && (
-          <Navigation wide={false} active={screen} onSelect={navigate} />
+          <Navigation
+            wide={false}
+            active={screen}
+            onSelect={navigate}
+            onScan={() => setScannerOpen(true)}
+          />
         )}
+        <Modal
+          visible={scannerOpen}
+          animationType="slide"
+          onRequestClose={() => setScannerOpen(false)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}>
+            <ScannerScreen
+              active={scannerOpen}
+              baseUrl={demo ? '' : lastServer}
+              onClose={() => setScannerOpen(false)}
+              onConfirmed={data.refresh}
+            />
+          </SafeAreaView>
+        </Modal>
         <Modal
           visible={screen === 'Suggestions' && wide}
           transparent

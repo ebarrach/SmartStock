@@ -14,7 +14,7 @@ Le suivi par série utilise les mouvements canoniques, sans second journal. La r
 
 ## Chemin canonique
 
-`ServiceMain` conserve l’unique `InventoryActor`, le fichier d’inventaire atomique, les acteurs/services et l’API de `develop`. `HardwareMqtt` ajoute **un** client Paho et un abonnement. Aucun `SmartStockManager`, second serveur `SmartStockApi` ou fichier `stock.json`/`history.json` concurrent n’est démarré.
+`ServiceMain` conserve l’unique `InventoryActor`, les JSON transactionnels (journal interne + commit), les acteurs/services et l’API de `develop`. `HardwareMqtt` ajoute **un** client Paho et un abonnement. Aucun `SmartStockManager`, second serveur `SmartStockApi` ou fichier `stock.json`/`history.json` concurrent n’est démarré.
 
 - Phidget : `code/raspberry/smartstock_phidget_mqtt.py`, température °C et humidité %, publications QoS 1 datées. Un UUID est maintenant créé avant publication ; les retransmissions Paho d’un même message conservent son contenu.
 - MKR : `code/arduino/SmartStockMKR/SmartStockMKR.ino`, porte et HX711. Configuration locale `arduino_secrets.h` à créer depuis l’exemple, ignorée par Git. Client ID propre à chaque carte. WiFiNINA, PubSubClient et HX711 requis ; carte exacte à confirmer avant compilation/flash. Aucun flash effectué.
@@ -84,7 +84,7 @@ sbt test 'set assembly / assemblyCacheOutput := false' 'set assembly / assemblyO
 $env:SMARTSTOCK_MQTT_URL='tcp://127.0.0.1:1883'
 $env:SMARTSTOCK_MQTT_TOPIC='smartstock/events'
 $env:SMARTSTOCK_PORT='18112'
-$env:SMARTSTOCK_DEMO_DATA='../../carnet-de-bord/mqtt-recette.json'
+$env:SMARTSTOCK_DATA_DIR='D:/Projects/Java/SmartStock/code/data/recipes/mqtt'
 java -jar ../../carnet-de-bord/smartstock-mqtt-candidate.jar --demo
 ```
 

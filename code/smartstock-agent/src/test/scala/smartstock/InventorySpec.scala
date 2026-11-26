@@ -72,7 +72,7 @@ class InventorySpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
     "refuser references absentes, doublons et valeurs invalides" in {
       Vector(
         product.copy(id = ""),
-        product.copy(unitWeightGrams = Double.NaN),
+        product.copy(unitWeightGrams = Some(Double.NaN)),
         product.copy(minStock = -1),
         product.copy(dataMatrix = " ")
       ).foreach { invalid =>

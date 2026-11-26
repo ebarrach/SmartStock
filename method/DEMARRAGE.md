@@ -1,6 +1,10 @@
 # SmartStock — démarrage local
 
-Raccordement MQTT en cours sur la branche d’intégration : [INTEGRATION_MQTT.md](INTEGRATION_MQTT.md) (Phidget/MKR/QRbot, diagnostic brut et protocole de capture explicite). Ne pas assimiler la recette logicielle au test du matériel.
+**Android autonome sans Metro / réseau local PC : [WIFI_ANDROID.md](WIFI_ANDROID.md)** — lancement, APK, mode serveur persistant et calibration.
+
+Téléphone Android en USB, caméra intégrée à SmartStock et test sans balance : [RECETTE_USB.md](RECETTE_USB.md).
+
+Raccordement MQTT intégré à l’agent Scala/Akka : [INTEGRATION_MQTT.md](INTEGRATION_MQTT.md) (Phidget/MKR/QRbot, diagnostic brut et protocole de capture explicite). Ne pas assimiler la recette logicielle au test du matériel.
 
 Commandes PowerShell depuis la racine du dépôt. Agent et mobile dans des terminaux séparés.
 
@@ -12,13 +16,11 @@ sbt assembly
 java -jar target/scala-2.13/smartstock-agent.jar --demo
 ```
 
-- `--demo` : initialise un stockage vide avec des données simulées ; omettre pour le mode sans initialisation fictive.
-- Stockage réel : `code/smartstock-agent/data/inventory.json` ; avec `--demo` :
-  `code/smartstock-agent/data/demo-inventory.json`.
-- Autre stockage : définir `SMARTSTOCK_DATA` avant de lancer l’agent.
-- Autre stockage de démo : `SMARTSTOCK_DEMO_DATA`, distinct de `SMARTSTOCK_DATA`.
+- Stockage : JSON transactionnels dans `code/data/`. `SMARTSTOCK_DATA_DIR` permet un dossier absolu distinct ; `SMARTSTOCK_HOME` désigne la racine du projet.
+- `--demo` autorise un profil marqué Demo, sans réinitialisation ni fixture automatique. Initialisation explicite d'un stockage vide seulement : `--init-catalog` ou `--demo --init-demo`.
+- Lancement PC courant : `./code/tools/Start-PhoneServer.ps1`. Format, migration, sauvegarde et reprise : [STOCKAGE_JSON.md](STOCKAGE_JSON.md).
 - Catalogue : `config/catalog.json` (réel), `config/demo-catalog.json` (démo),
-  depuis le dossier agent. `SMARTSTOCK_CATALOG` permet un fichier explicite.
+  résolus depuis la racine du projet. `SMARTSTOCK_CATALOG` permet un chemin explicite.
   Une définition contient `product` (format API existant), `category`, `unit`,
   `targetQuantity`, `leadDays`, `packSize`, `coverageDays`, `safetyDays` et
   `storageConditions`. Les lots et leurs quantités restent dans le stockage.
@@ -36,11 +38,11 @@ Depuis `code/smartstock-agent/`, JDK 21 :
 sbt 'set assembly / assemblyCacheOutput := false' 'set assembly / assemblyOutputPath := file("../../carnet-de-bord/smartstock-analysis-candidate.jar")' assembly
 $env:SMARTSTOCK_PORT='18099'
 $env:SMARTSTOCK_BIND='0.0.0.0'
-$env:SMARTSTOCK_DEMO_DATA='../../carnet-de-bord/demo-telephone.json'
+$env:SMARTSTOCK_DATA_DIR='D:/Projects/Java/SmartStock/code/data/recipes/analysis-candidate'
 java -jar ../../carnet-de-bord/smartstock-analysis-candidate.jar --demo
 ```
 
-Choisir un port libre et un fichier distinct pour chaque instance. Ne jamais partager le stockage entre deux processus. `--demo` utilise exclusivement des exemples ; pour le réel, omettre ce drapeau et définir `SMARTSTOCK_DATA` vers le stockage réel, avec une seule instance. Ne pas remplacer le JAR d’un service en cours.
+Choisir un port libre et un dossier distinct pour chaque instance. Aucun réensemencement au redémarrage. Ne jamais partager le stockage entre deux processus. `--demo` autorise le profil d’exemple ; pour le réel utiliser un dossier Real distinct avec `SMARTSTOCK_DATA_DIR`. Ne pas remplacer le JAR d’un service en cours.
 
 Pour tester le candidat sur PC, depuis `code/mobile-app/` :
 
@@ -186,14 +188,14 @@ sbt 'set assembly / assemblyCacheOutput := false' 'set assembly / assemblyOutput
 Puis depuis la racine, choisir **une seule** configuration :
 
 ```powershell
-# Démo : fichier exclusivement destiné aux exemples
-./code/tools/Start-SmartStock.ps1 -Mode Demo -Port 18099 -DataPath "$PWD/carnet-de-bord/wifi-demo.json" -JarPath "$PWD/carnet-de-bord/smartstock-wifi-candidate.jar"
+# Profil Demo : dossier distinct, sans initialisation implicite
+./code/tools/Start-SmartStock.ps1 -Mode Demo -Port 18099 -DataDirectory "code/data/recipes/wifi-demo" -JarPath "$PWD/carnet-de-bord/smartstock-wifi-candidate.jar"
 
 # Réel : aucun exemple ; arrêter d’abord le service propriétaire de cet inventaire
-./code/tools/Start-SmartStock.ps1 -Mode Real -Port 18099 -DataPath "$PWD/code/smartstock-agent/data/inventory.json" -JarPath "$PWD/carnet-de-bord/smartstock-wifi-candidate.jar" -CatalogPath "$PWD/code/smartstock-agent/config/catalog.json"
+./code/tools/Start-SmartStock.ps1 -Mode Real -Port 18099 -DataDirectory "code/data/recipes/real-distinct" -JarPath "$PWD/carnet-de-bord/smartstock-wifi-candidate.jar" -CatalogPath "$PWD/code/smartstock-agent/config/catalog.json"
 ```
 
-Le script refuse un port occupé, sépare les modes, affiche stockage/catalogue/URL et écoute sur `0.0.0.0`. Le JAR conserve un verrou exclusif `.lock` pendant toute son exécution. Ne jamais effacer ce verrou pour contourner un serveur actif. Les anciens JAR ne prennent pas ce verrou : vérifier et arrêter leur instance avant de réutiliser leur stockage. Par prudence, le lanceur Réel refuse le démarrage si un processus Java SmartStock est déjà détecté. Aucune donnée existante n’est purgée ou réinitialisée. Ctrl+C arrête le candidat.
+Le script refuse un port occupé, sépare les modes, affiche stockage/catalogue/URL et écoute sur `0.0.0.0`. Le JAR conserve un verrou exclusif `.lock` pendant toute son exécution. Ne jamais effacer ce verrou pour contourner un serveur actif. Les anciens JAR ne prennent pas ce verrou : vérifier et arrêter leur instance avant de réutiliser leur stockage. Le lanceur refuse les ports occupés ; le mutex et le verrou JVM refusent deux instances propriétaires du même dossier. Aucune donnée existante n’est purgée ou réinitialisée. Ctrl+C arrête le candidat.
 
 ### Pare-feu — commande à examiner, non appliquée automatiquement
 

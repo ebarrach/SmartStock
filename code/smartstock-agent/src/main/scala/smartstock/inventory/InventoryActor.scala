@@ -19,59 +19,7 @@ final class FileInventoryStore(path: Path, allowExamples: Boolean = false) exten
   def load(): Inventory =
     if (Files.exists(path)) {
       val state = Files.readString(path, UTF_8).parseJson.convertTo[Inventory]
-      require(allowExamples || state.dataset != "demo", "Stockage Demo interdit en mode reel")
-      require(Set("real", "legacy", "demo")(state.dataset), "Mode du stockage invalide")
-      require(
-        state.dailyMeasures.forall(d =>
-          d.count > 0 && d.min.isFinite && d.max.isFinite && d.min <= d.max && scala.util
-            .Try(java.time.LocalDate.parse(d.day))
-            .isSuccess
-        ),
-        "Agregats de mesures invalides"
-      )
-      require(
-        state.readings.forall(r =>
-          r.value.isFinite && scala.util.Try(java.time.Instant.parse(r.observedAt)).isSuccess
-        ),
-        "Historique de mesures invalide"
-      )
-      require(
-        state.baselines.values.forall(b =>
-          b.quantity >= 0 && scala.util.Try(java.time.Instant.parse(b.recordedAt)).isSuccess
-        ),
-        "Etat initial de stock invalide"
-      )
-      require(
-        state.movements.map(_.id).distinct.size == state.movements.size,
-        "Identifiants de mouvements dupliques"
-      )
-      require(
-        state.movements.forall(m =>
-          m.id.nonEmpty && m.eventId.nonEmpty && m.quantityAfter >= 0 && scala.util
-            .Try(java.time.Instant.parse(m.occurredAt))
-            .isSuccess
-        ),
-        "Historique invalide"
-      )
-      val clock = Clock.systemUTC()
-      val checked = state.products
-        .foldLeft[Either[DomainError, Inventory]](Right(Inventory())) { (current, product) =>
-          current.flatMap(s =>
-            InventoryRules
-              .execute(s, RegisterProduct(product), java.util.UUID.randomUUID().toString, clock)
-          )
-        }
-        .flatMap { products =>
-          state.batches.foldLeft[Either[DomainError, Inventory]](Right(products)) {
-            (current, batch) =>
-              current.flatMap(s =>
-                InventoryRules
-                  .execute(s, RegisterBatch(batch), java.util.UUID.randomUUID().toString, clock)
-              )
-          }
-        }
-      require(checked.isRight, "Invalid persisted inventory; refusing silent reset")
-      state
+      InventoryValidation.validate(state, allowExamples)
     } else Inventory()
 
   def save(state: Inventory): Unit = {
@@ -92,6 +40,81 @@ final class FileInventoryStore(path: Path, allowExamples: Boolean = false) exten
         StandardCopyOption.REPLACE_EXISTING
       )
     } finally Files.deleteIfExists(temp)
+  }
+}
+
+object InventoryValidation {
+  def validate(state: Inventory, allowExamples: Boolean): Inventory = {
+    require(allowExamples || state.dataset != "demo", "Stockage Demo interdit en mode reel")
+    require(Set("real", "legacy", "demo")(state.dataset), "Mode du stockage invalide")
+    require(
+      state.serverSettings.forall(s =>
+        s.modeEpochMillis >= 0 &&
+          s.archivedProducts.forall(id => state.products.exists(_.id == id)) &&
+          s.tare.forall(t =>
+            t.raw.isFinite && t.source.nonEmpty && scala.util
+              .Try(java.time.Instant.parse(t.capturedAt))
+              .isSuccess
+          ) &&
+          s.calibration.forall(c =>
+            c.source.nonEmpty && c.referenceGrams.isFinite && c.referenceGrams > 0 &&
+              c.tareRaw.isFinite && c.loadedRaw.isFinite && c.tareRaw != c.loadedRaw && c.gramsPerRaw.isFinite &&
+              scala.util.Try(java.time.Instant.parse(c.measuredAt)).isSuccess
+          )
+      ),
+      "Configuration ou calibration persistee invalide"
+    )
+    require(
+      state.dailyMeasures.forall(d =>
+        d.count > 0 && d.min.isFinite && d.max.isFinite && d.min <= d.max && scala.util
+          .Try(java.time.LocalDate.parse(d.day))
+          .isSuccess
+      ),
+      "Agregats de mesures invalides"
+    )
+    require(
+      state.readings.forall(r =>
+        r.value.isFinite && scala.util.Try(java.time.Instant.parse(r.observedAt)).isSuccess
+      ),
+      "Historique de mesures invalide"
+    )
+    require(
+      state.baselines.values.forall(b =>
+        b.quantity >= 0 && scala.util.Try(java.time.Instant.parse(b.recordedAt)).isSuccess
+      ),
+      "Etat initial de stock invalide"
+    )
+    require(
+      state.movements.map(_.id).distinct.size == state.movements.size,
+      "Identifiants de mouvements dupliques"
+    )
+    require(
+      state.movements.forall(m =>
+        m.id.nonEmpty && m.eventId.nonEmpty && m.quantityAfter >= 0 && scala.util
+          .Try(java.time.Instant.parse(m.occurredAt))
+          .isSuccess
+      ),
+      "Historique invalide"
+    )
+    val clock = Clock.systemUTC()
+    val checked = state.products
+      .foldLeft[Either[DomainError, Inventory]](Right(Inventory())) { (current, product) =>
+        current.flatMap(s =>
+          InventoryRules
+            .execute(s, RegisterProduct(product), java.util.UUID.randomUUID().toString, clock)
+        )
+      }
+      .flatMap { products =>
+        state.batches.foldLeft[Either[DomainError, Inventory]](Right(products)) {
+          (current, batch) =>
+            current.flatMap(s =>
+              InventoryRules
+                .execute(s, RegisterBatch(batch), java.util.UUID.randomUUID().toString, clock)
+            )
+        }
+      }
+    require(checked.isRight, "Invalid persisted inventory; refusing silent reset")
+    state
   }
 }
 

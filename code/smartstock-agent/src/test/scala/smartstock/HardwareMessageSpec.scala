@@ -5,6 +5,12 @@ import smartstock.events.HardwareMessage._
 
 class HardwareMessageSpec extends AnyWordSpec {
   "Le contrat materiel" should {
+    "lire un echantillon brut de calibration sans evenement de mouvement" in {
+      val wire = """{"sensor":"weight","event":"sample","value":0,"delta":0,"unit":"raw"}"""
+      assert(parse(wire) == Right(RawSample(0)))
+      assert(smartstock.events.HardwareMqtt.reading(wire).toOption.get.kind == "weight.raw")
+      assert(parse(wire.replace("\"delta\":0", "\"delta\":1")).isLeft)
+    }
     "conserver les unites brutes sans conversion inventee" in {
       assert(
         parse(
