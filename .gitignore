@@ -33,8 +33,8 @@ local.properties
 *.key
 **/keystore.properties
 **/signing.properties
-/code/smartstock-agent/data/
-/code/data/
+#/code/smartstock-agent/data/
+#/code/data/
 /method/analysis/2026-10-29 – CONNECTIVITY_DECISIONS.md
 /method/analysis/2026-10-29 – CORRECTIF_MATERIEL.md
 /method/analysis/2026-10-29 – MVP_ACCEPTANCE.md

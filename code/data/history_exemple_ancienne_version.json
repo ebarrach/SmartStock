@@ -1,0 +1,86 @@
+[
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-25T14:37:29.929995400Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-25T16:37:59.895709100Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_REMOVE",
+    "timestamp": "2026-10-25T16:40:40.492807400Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-25T16:45:11.822097300Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_REMOVE",
+    "timestamp": "2026-10-25T16:50:19.913573600Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-25T17:01:51.300829900Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-30T16:53:08.964712600Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_REMOVE",
+    "timestamp": "2026-10-30T16:53:46.283745400Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-30T16:54:03.717654Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-30T16:59:14.477876500Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-30T17:01:17.973290700Z",
+    "batchId": "05400581010569-305761"
+  },
+  {
+    "medicationId": "05400581010569",
+    "quantity": 1,
+    "movementType": "BATCH_ADD",
+    "timestamp": "2026-10-30T22:31:26.398010800Z",
+    "batchId": "05400581010569-305761"
+  }
+]
