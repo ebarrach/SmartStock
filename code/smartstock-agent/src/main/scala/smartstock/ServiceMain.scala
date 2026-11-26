@@ -88,9 +88,65 @@ object ServiceMain {
       catalog
     )
     server.start()
+    val mqtt =
+      try
+        sys.env
+          .get("SMARTSTOCK_MQTT_URL")
+          .map(uri => {
+            val http = java.net.http.HttpClient
+              .newBuilder()
+              .connectTimeout(java.time.Duration.ofSeconds(3))
+              .build()
+            val submit: String => Unit = payload => {
+              val request = java.net.http.HttpRequest
+                .newBuilder(java.net.URI.create(s"http://127.0.0.1:${server.port}/api/v1/events"))
+                .timeout(java.time.Duration.ofSeconds(5))
+                .header("Content-Type", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(payload))
+                .build()
+              val response =
+                http.send(request, java.net.http.HttpResponse.BodyHandlers.discarding())
+              if (response.statusCode() >= 400 && response.statusCode() < 500)
+                system.log
+                  .warn(
+                    "MQTT envelope rejected by canonical API: {}",
+                    Int.box(response.statusCode())
+                  )
+              else
+                require(
+                  response.statusCode() == 200,
+                  s"Canonical API failed MQTT event: ${response.statusCode()}"
+                )
+            }
+            val bridge =
+              try
+                new smartstock.events.HardwareMqtt(
+                  uri,
+                  sys.env.getOrElse("SMARTSTOCK_MQTT_TOPIC", "smartstock/events"),
+                  inventory,
+                  submit,
+                  () => http.close()
+                )
+              catch {
+                case scala.util.control.NonFatal(_) =>
+                  http.close()
+                  throw new IllegalArgumentException(
+                    "Configuration MQTT invalide ; verifier URI/topic/identifiants locaux"
+                  )
+              }
+            bridge.start()
+            bridge
+          })
+      catch {
+        case scala.util.control.NonFatal(error) =>
+          server.close()
+          system.terminate()
+          throw error
+      }
     println(s"SmartStock API http://127.0.0.1:${server.port}/api/v1/health (simulation=$demo)")
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
-      server.close(); system.terminate()
+      try mqtt.foreach(_.close())
+      finally { server.close(); system.terminate() }
     }))
     Await.ready(system.whenTerminated, Duration.Inf)
   }

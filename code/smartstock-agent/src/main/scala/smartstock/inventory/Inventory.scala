@@ -274,6 +274,9 @@ object InventoryRules {
         else Right(state.copy(sensorInputs = state.sensorInputs :+ input))
       case RecordReading(reading, _) =>
         val supported = Set(
+          "door.changed",
+          "weight.raw",
+          "weight.delta.raw",
           "temperature.measured",
           "humidity.measured",
           "infrared.detected",
@@ -286,7 +289,9 @@ object InventoryRules {
           Try(Instant.parse(reading.observedAt)).isFailure ||
           (reading.kind == "humidity.measured" && (reading.value < 0 || reading.value > 100)) ||
           (reading.kind == "fan.changed" && (reading.value < 0 || reading.value > 100)) ||
-          (Set("infrared.detected", "connection.changed", "sensor.failed")(reading.kind) && !Set(
+          (Set("infrared.detected", "connection.changed", "sensor.failed", "door.changed")(
+            reading.kind
+          ) && !Set(
             0.0,
             1.0
           )(reading.value))

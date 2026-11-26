@@ -1195,7 +1195,10 @@
               "infrared.detected",
               "fan.changed",
               "connection.changed",
-              "sensor.failed"
+              "sensor.failed",
+              "door.changed",
+              "weight.raw",
+              "weight.delta.raw"
             ]
           },
           "value": {

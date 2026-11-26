@@ -52,5 +52,5 @@ object HardwareMessage {
       case "sensor_status" => Status(string("name"), string("status"))
       case _               => throw new IllegalArgumentException("Type materiel non pris en charge")
     }
-  }.toEither.left.map(e => Option(e.getMessage).getOrElse("Message materiel invalide"))
+  }.toEither.left.map(e => s"Message materiel invalide (${e.getClass.getSimpleName})")
 }
