@@ -226,7 +226,21 @@ final class ApiServer(
         if (Set("datamatrix.detected", "weight.changed")(fields("type").convertTo[String])) {
           val kind = fields("type").convertTo[String]
           val key = if (kind == "datamatrix.detected") "code" else "grams"
-          require(data.keySet == Set("batchId", "operationId", key), "Stock event fields invalid")
+          val required = Set("batchId", "operationId", key)
+          require(
+            required.subsetOf(data.keySet) && data.keySet.subsetOf(
+              required ++
+                (if (kind == "datamatrix.detected") Set("serial") else Set.empty[String])
+            ),
+            "Stock event fields invalid"
+          )
+          data.get("serial").foreach { value =>
+            val serial = value.convertTo[String]
+            require(
+              serial.nonEmpty && serial.length <= 20 && !serial.exists(_.isControl),
+              "Serie invalide"
+            )
+          }
           java.util.UUID.fromString(data("operationId").convertTo[String])
           if (kind == "datamatrix.detected") data(key).convertTo[String]
           else data(key).convertTo[Double]
@@ -236,7 +250,8 @@ final class ApiServer(
             fields("src").convertTo[String],
             data("batchId").convertTo[String],
             kind,
-            data(key),
+            if (data.contains("serial")) JsObject("code" -> data(key), "serial" -> data("serial"))
+            else data(key),
             fields("seq").convertTo[Long],
             System.currentTimeMillis()
           )

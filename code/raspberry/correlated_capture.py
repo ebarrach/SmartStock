@@ -49,7 +49,7 @@ def envelopes(operation, scan, weight, calibration, batch_id, observed_at, inven
     if abs((instants[1]-instants[0]).total_seconds())>90:raise ValueError('Capture timestamps exceed the explicit 90s operation window')
     result=[]
     for seq,(kind,data,ts) in enumerate([
-        ('datamatrix.detected',{'code':fields['gtin']},dates[0]),
+        ('datamatrix.detected',{'code':fields['gtin'],'serial':fields['serial']},dates[0]),
         ('weight.changed',{'grams':grams},dates[1]),
     ],1):
         identity=identities[seq-1]

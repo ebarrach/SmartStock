@@ -895,7 +895,7 @@
     "/api/v1/events": {
       "post": {
         "operationId": "receiveEvent",
-        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine.",
+        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine. DataMatrix accepte serial optionnel (1..20 caracteres). Une serie ne represente qu une unite. Premier retrait de serie inconnue autorise avec initialPresenceUnknown=true dans le mouvement. Retrait repete ou entree repetee refuses selon le journal persistant. Les anciens evenements sans serie restent compatibles et ne prouvent pas une presence unitaire.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1323,6 +1323,19 @@
           },
           "reason": {
             "type": "string"
+          },
+          "serial": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 20,
+            "description": "Serie unitaire GS1 lorsqu elle est fournie par le scan valide"
+          },
+          "initialPresenceUnknown": {
+            "type": "boolean",
+            "description": "Premier mouvement de cette serie, sans inventaire initial unitaire connu. Aucun etat anterieur invente."
           }
         }
       },

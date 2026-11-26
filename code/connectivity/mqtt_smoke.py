@@ -100,9 +100,9 @@ try:
     request('/products',{'id':product,'name':'MQTT test','dataMatrix':gtin,'unitWeightGrams':10,'minStock':1})
     request('/batches',{'id':batch,'productId':product,'location':'cabinet','quantity':40,'expiresOn':'2027-12-31'})
     sequence=0
-    def operation():
+    def operation(serial=None):
         op=str(uuid4()) # Software fixture, not a physical arming test.
-        scan=dict(id=str(uuid4()),operationId=op,gtin=gtin,lot='LOT',serial='TEST',expiration='2027-12-31',timestamp=datetime.now(timezone.utc).isoformat())
+        scan=dict(id=str(uuid4()),operationId=op,gtin=gtin,lot='LOT',serial=serial or uuid4().hex[:20],expiration='2027-12-31',timestamp=datetime.now(timezone.utc).isoformat())
         weight=dict(captureId=str(uuid4()),operationId=op,sensor='weight',event='exit',unit='raw',delta=-1000,source='simulated-mkr')
         calibration=dict(gramsPerRaw=.01,offsetGrams=0,deviceSource='simulated-mkr') # Synthetic test only.
         return envelopes(op,scan,weight,calibration,batch,datetime.now(timezone.utc).isoformat(),request('/snapshot'))
@@ -110,6 +110,11 @@ try:
     first=operation()
     for item in first:send(item)
     wait(lambda:quantity()==39)
+    firstSerial=first[0]['data']['serial']
+    firstMovement=[m for m in request('/movements') if m['batchId']==batch][0]
+    assert firstMovement['serial']==firstSerial and firstMovement['initialPresenceUnknown'] is True
+    for item in operation(firstSerial):send(item)
+    time.sleep(1);assert quantity()==39
     for item in first:send(item)
     time.sleep(1);assert quantity()==39
     for item in operation():send(item)
@@ -133,6 +138,8 @@ try:
     for item in last:send(item)
     time.sleep(1)
     assert quantity()==37 and len([m for m in request('/movements') if m['batchId']==batch])==3
+    for item in operation(firstSerial):send(item)
+    time.sleep(1);assert quantity()==37
     capture=artifacts/'replay.jsonl'
     capture.write_text(''.join(json.dumps(e)+'\n' for e in last),encoding='utf8')
     publishing=os.environ.copy();publishing['PYTHONPATH']=os.environ.get('PYTHONPATH','')

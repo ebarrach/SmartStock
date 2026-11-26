@@ -260,6 +260,10 @@ export function ActivityScreen({
             {m.delta} unités
           </Text>
           <Text>Stock après opération : {m.quantityAfter}</Text>
+          {m.serial ? <Text>Série : {m.serial}</Text> : null}
+          {m.initialPresenceUnknown ? (
+            <Text>Présence initiale inconnue</Text>
+          ) : null}
           <Text>
             {(
               {

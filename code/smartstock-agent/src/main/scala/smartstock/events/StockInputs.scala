@@ -34,7 +34,10 @@ final class StockInputs(
         UUID.fromString(input.operationId),
         input.source,
         input.batchId,
-        input.value.convertTo[String]
+        input.value match {
+          case obj: JsObject => obj.fields("code").convertTo[String]
+          case other         => other.convertTo[String]
+        }
       )
     case "weight.changed" =>
       WeightInput(
@@ -103,7 +106,13 @@ final class StockInputs(
                         Some(batch.get.quantity),
                         if (value.delta < 0) "consumption" else "replenishment",
                         input.source,
-                        "sensor-correlation"
+                        "sensor-correlation",
+                        records
+                          .find(_.kind == "datamatrix.detected")
+                          .flatMap(_.value match {
+                            case obj: JsObject => obj.fields.get("serial").map(_.convertTo[String])
+                            case _             => None
+                          })
                       )
                       InventoryRules.execute(
                         state,

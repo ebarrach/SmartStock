@@ -29,7 +29,9 @@ final case class Movement(
     productId: String = "",
     kind: String = "legacy",
     source: String = "unknown",
-    reason: String = ""
+    reason: String = "",
+    serial: Option[String] = None,
+    initialPresenceUnknown: Boolean = false
 )
 final case class Reading(kind: String, value: Double, source: String, observedAt: String)
 final case class SensorRecord(
@@ -81,7 +83,8 @@ final case class AdjustStock(
     expectedBefore: Option[Int] = None,
     kind: String = "correction",
     source: String = "manual",
-    reason: String = ""
+    reason: String = "",
+    serial: Option[String] = None
 ) extends InventoryOperation {
   def fingerprint: String = {
     val base = JsObject(
@@ -89,14 +92,15 @@ final case class AdjustStock(
       "delta" -> JsNumber(delta),
       "expectedBefore" -> expectedBefore.map(JsNumber(_)).getOrElse(JsNull)
     )
-    if (kind == "correction" && source == "manual" && reason.isEmpty) base.compactPrint
+    if (kind == "correction" && source == "manual" && reason.isEmpty && serial.isEmpty)
+      base.compactPrint
     else
       JsObject(
         base.fields ++ Map(
           "kind" -> JsString(kind),
           "source" -> JsString(source),
           "reason" -> JsString(reason)
-        )
+        ) ++ serial.map(s => "serial" -> JsString(s))
       ).compactPrint
   }
 }
@@ -116,7 +120,7 @@ final case class RecordSensor(input: SensorRecord) extends InventoryOperation {
 object InventoryJson extends DefaultJsonProtocol {
   implicit val productFormat: RootJsonFormat[Product] = jsonFormat5(Product.apply)
   implicit val batchFormat: RootJsonFormat[Batch] = jsonFormat5(Batch.apply)
-  private val fullMovementFormat = jsonFormat10(Movement.apply)
+  private val fullMovementFormat = jsonFormat12(Movement.apply)
   implicit val movementFormat: RootJsonFormat[Movement] = new RootJsonFormat[Movement] {
     def write(value: Movement): JsValue = fullMovementFormat.write(value)
     def read(value: JsValue): Movement = fullMovementFormat.read(
@@ -125,7 +129,9 @@ object InventoryJson extends DefaultJsonProtocol {
           "productId" -> JsString(""),
           "kind" -> JsString("legacy"),
           "source" -> JsString("unknown"),
-          "reason" -> JsString("")
+          "reason" -> JsString(""),
+          "serial" -> JsNull,
+          "initialPresenceUnknown" -> JsBoolean(false)
         ) ++ value.asJsObject.fields
       )
     )
@@ -220,12 +226,16 @@ object InventoryRules {
                 .updated(batch.id, StockBaseline(batch.quantity, Instant.now(clock).toString))
             )
           )
-      case AdjustStock(batchId, delta, expectedBefore, kind, source, reason) =>
+      case AdjustStock(batchId, delta, expectedBefore, kind, source, reason, serial) =>
         state.batches
           .find(_.id == batchId)
           .toRight(DomainError("batch_not_found", "Lot inconnu", 404))
           .flatMap { batch =>
             val next = batch.quantity.toLong + delta.toLong
+            val previousUnit = serial.flatMap(s =>
+              state.movements.reverseIterator
+                .find(m => m.productId == batch.productId && m.serial.contains(s))
+            )
             if (
               !Set("consumption", "replenishment", "correction", "loss", "expiry")(
                 kind
@@ -234,6 +244,16 @@ object InventoryRules {
                 kind
               ) && delta >= 0) || (kind == "replenishment" && delta <= 0)
             ) invalid("Type, origine ou signe de mouvement invalide")
+            else if (
+              serial.exists(s => s.isEmpty || s.length > 20 || s.exists(_.isControl)) ||
+              (serial.nonEmpty && math.abs(delta.toLong) != 1)
+            ) invalid("Une serie identifie exactement une unite")
+            else if (
+              previousUnit.exists(m => (m.delta > 0 && delta > 0) || (m.delta < 0 && delta < 0))
+            )
+              Left(DomainError("serial_state_conflict", "Serie deja presente ou deja retiree", 409))
+            else if (previousUnit.exists(m => m.delta > 0 && m.batchId != batchId))
+              Left(DomainError("serial_batch_conflict", "Serie presente dans un autre lot", 409))
             else if (expectedBefore.exists(_ != batch.quantity))
               Left(DomainError("stock_changed", "Stock modifie pendant confirmation", 409))
             else if (delta == 0) invalid("Variation nulle")
@@ -250,7 +270,9 @@ object InventoryRules {
                 batch.productId,
                 kind,
                 source,
-                reason
+                reason,
+                serial,
+                serial.nonEmpty && previousUnit.isEmpty
               )
               Right(
                 state.copy(

@@ -4,7 +4,7 @@ import { Text, TextInput } from 'react-native';
 import App from '../App';
 import { MockStockRepository, StockRepository } from '../src/data/repository';
 import { layoutForWidth } from '../src/ui/theme';
-import { cabinetData } from '../src/ui/InventoryScreens';
+import { ActivityScreen, cabinetData } from '../src/ui/InventoryScreens';
 import { saveConnection } from '../src/data/connection';
 jest.mock(
   'react-native-safe-area-context',
@@ -59,6 +59,35 @@ async function press(label: string) {
 function text() {
   return JSON.stringify(tree.toJSON());
 }
+
+test('affiche la serie et la presence initiale inconnue dans les mouvements', async () => {
+  const snapshot = await new MockStockRepository().load();
+  await act(async () => {
+    tree.unmount();
+    tree = renderer.create(
+      <ActivityScreen
+        alerts={false}
+        snapshot={{
+          ...snapshot,
+          movements: [
+            {
+              id: 'serial-movement',
+              batchId: 'LOT-C',
+              delta: -1,
+              quantityAfter: 39,
+              occurredAt: '2026-11-26T10:00:00Z',
+              eventId: 'serial-event',
+              serial: 'UNIT-1',
+              initialPresenceUnknown: true,
+            },
+          ],
+        }}
+      />,
+    );
+  });
+  expect(text()).toContain('UNIT-1');
+  expect(text()).toContain('Présence initiale inconnue');
+});
 
 test('restaure une connexion API hors ligne après remontage sans afficher la Démo', async () => {
   await act(async () => tree.unmount());

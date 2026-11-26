@@ -28,6 +28,8 @@ export type Movement = Readonly<{
   kind?: string;
   source?: string;
   reason?: string;
+  serial?: string | null;
+  initialPresenceUnknown?: boolean;
 }>;
 export type Reading = Readonly<{
   kind: string;
@@ -111,7 +113,13 @@ export function parseSnapshot(value: unknown): Snapshot {
       !strings(m, ['id', 'batchId', 'occurredAt', 'eventId']) ||
       !Number.isInteger(m.delta) ||
       !Number.isInteger(m.quantityAfter) ||
-      Number(m.quantityAfter) < 0
+      Number(m.quantityAfter) < 0 ||
+      (m.serial != null &&
+        (typeof m.serial !== 'string' ||
+          m.serial.length < 1 ||
+          m.serial.length > 20)) ||
+      (m.initialPresenceUnknown !== undefined &&
+        typeof m.initialPresenceUnknown !== 'boolean')
     ) {
       throw new Error('Mouvement API invalide');
     }
