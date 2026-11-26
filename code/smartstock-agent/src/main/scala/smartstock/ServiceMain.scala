@@ -15,14 +15,36 @@ import smartstock.inventory.InventoryJson._
 
 object ServiceMain {
   def main(args: Array[String]): Unit = {
-    val path = Paths.get(
-      if (args.contains("--demo"))
-        sys.env.getOrElse("SMARTSTOCK_DEMO_DATA", "data/demo-inventory.json")
-      else sys.env.getOrElse("SMARTSTOCK_DATA", "data/inventory.json")
+    val root = ProjectPaths.root
+    val legacy =
+      sys.env.get(if (args.contains("--demo")) "SMARTSTOCK_DEMO_DATA" else "SMARTSTOCK_DATA")
+    val directory =
+      ProjectPaths.resolve(sys.env.getOrElse("SMARTSTOCK_DATA_DIR", "code/data"), root)
+    require(
+      legacy.isEmpty || !sys.env.contains("SMARTSTOCK_DATA_DIR"),
+      "Deux stockages configures : choisir un seul chemin"
     )
-    InventoryProcessLock.withLock(path)(storage => run(args, storage))
+    val lockPath =
+      legacy.map(value => ProjectPaths.resolve(value, root)).getOrElse(directory.resolve("store"))
+    InventoryProcessLock.withLock(lockPath) { storage =>
+      val store: InventoryStore =
+        if (legacy.nonEmpty) new FileInventoryStore(storage, args.contains("--demo"))
+        else new JsonDirectoryStore(directory, args.contains("--demo"))
+      println(s"Profil=${if (args.contains("--demo")) "Demo"
+        else "Real"}; donnees=${if (legacy.nonEmpty) storage else directory}")
+      store match {
+        case json: JsonDirectoryStore =>
+          println(
+            "JSON persistants: " + json.files.mkString(
+              ", "
+            ) + "; transaction.json/commit.json internes"
+          )
+        case _ => ()
+      }
+      run(args, store, root)
+    }
   }
-  private def run(args: Array[String], storage: Path): Unit = {
+  private def run(args: Array[String], store: InventoryStore, root: Path): Unit = {
     val demo = args.contains("--demo")
     def setting(name: String, fallback: Double): Double =
       sys.env.get(name).map(_.toDouble).getOrElse(fallback)
@@ -40,33 +62,50 @@ object ServiceMain {
     )
     val port = sys.env.getOrElse("SMARTSTOCK_PORT", "8081").toInt
     require(port >= 0 && port <= 65535, "Invalid API port")
-    val store = new FileInventoryStore(
-      storage,
-      allowExamples = demo
-    )
-    val catalogPath = Paths.get(
+    val catalogPath = ProjectPaths.resolve(
       sys.env.getOrElse(
         "SMARTSTOCK_CATALOG",
-        if (demo) "config/demo-catalog.json" else "config/catalog.json"
-      )
+        if (demo) "code/smartstock-agent/config/demo-catalog.json"
+        else "code/smartstock-agent/config/catalog.json"
+      ),
+      root
     )
     val catalog = Catalog.load(catalogPath, demo)
     val original = store.load()
-    val catalogued = catalog.reconcile(original)
     require(
       !demo || original == Inventory() || original.dataset == "demo",
       "Stockage non marque Demo : choisir un nouveau SMARTSTOCK_DEMO_DATA, aucun stock existant modifie"
     )
-    val initialized = if (demo && original == Inventory()) {
+    require(
+      !args.contains("--init-demo") || (demo && original == Inventory()),
+      "Initialisation Demo explicite reservee a un stockage vide"
+    )
+    require(
+      !args.contains("--init-catalog") || original == Inventory(),
+      "Initialisation catalogue reservee a un stockage vide"
+    )
+    val initialized = if (args.contains("--init-demo")) {
       val fixture =
-        java.nio.file.Files.readString(Paths.get("config/demo-history.json")).parseJson.asJsObject
+        java.nio.file.Files
+          .readString(root.resolve("code/smartstock-agent/config/demo-history.json"))
+          .parseJson
+          .asJsObject
       require(
         fixture.fields("exampleData") == JsBoolean(true),
         "Jeu de demonstration marque requis"
       )
       catalog.reconcile(fixture.fields("inventory").convertTo[Inventory].copy(dataset = "demo"))
-    } else catalogued
-    if (initialized != original) store.save(initialized)
+    } else if (args.contains("--init-catalog"))
+      catalog.reconcile(original.copy(dataset = if (demo) "demo" else "real"))
+    else if (original == Inventory() && demo) original.copy(dataset = "demo")
+    else original
+    val configured = if (initialized.serverSettings.isEmpty) {
+      val legacy = ScanOnlySettings.fromEnvironment
+      initialized.copy(serverSettings =
+        Some(ServerSettings(withoutSensors = legacy.enabled && legacy.scaleDeclaredAbsent))
+      )
+    } else initialized
+    if (configured != original) store.save(configured)
     implicit val system: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "SmartStockService")
     val inventory = system.systemActorOf(
       InventoryActor(store),
@@ -85,7 +124,8 @@ object ServiceMain {
       Clock.systemUTC(),
       Some(new smartstock.events.StockInputs(inventory, windowMillis, toleranceGrams)),
       limits,
-      catalog
+      catalog,
+      ScanOnlySettings.fromEnvironment
     )
     server.start()
     val mqtt =

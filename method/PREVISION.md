@@ -4,9 +4,9 @@
 
 - `code/smartstock-agent/config/catalog.json` : définitions réelles, initialement vides. Racine `{ "exampleData": false, "entries": [] }`.
 - Chaque entrée contient `product` (`id`, `name`, `dataMatrix`, `unitWeightGrams`, `minStock`), `category`, `unit`, `targetQuantity`, `leadDays`, `packSize`, `coverageDays`, `safetyDays`, `storageConditions`. Voir `config/demo-catalog.json` pour le format complet, sans copier ses exemples en mode réel.
-- `SMARTSTOCK_DATA` : inventaire réel persistant ; défaut `data/inventory.json`. Le catalogue complète les définitions sans réinitialiser quantités, lots ni historique.
-- `SMARTSTOCK_DEMO_DATA` : inventaire de démonstration distinct ; défaut `data/demo-inventory.json`. Un fichier réel ou ancien non marqué est refusé en mode Démo.
-- `config/demo-history.json` : scénario déterministe de mai à novembre 2026, marqué `exampleData`, généré avec `node config/generate-demo.cjs`. Chargé uniquement dans un stockage Démo vide. Les médicaments sont fictifs, sans conseil de traitement.
+- `SMARTSTOCK_DATA_DIR` : dossier des JSON persistants, défaut `code/data/`. Définitions et noms courants dans `products.json` ; aucune réinjection du catalogue au redémarrage. Voir [STOCKAGE_JSON.md](STOCKAGE_JSON.md).
+- Pour les essais, choisir un dossier distinct sous `code/data/recipes/`. Le profil et le mode sans capteurs sont deux notions séparées.
+- `config/demo-history.json` : scénario déterministe de mai à novembre 2026, marqué `exampleData`, généré avec `node config/generate-demo.cjs`. Chargé uniquement sur demande `--demo --init-demo`, dans un stockage vide. Les médicaments sont fictifs, sans conseil de traitement.
 - `code/shared/api/examples/demo-*.json` : exports de l’API Scala pour le mode Démo hors ligne du mobile. Les calculs ne sont pas reproduits dans le client.
 
 ## Historique

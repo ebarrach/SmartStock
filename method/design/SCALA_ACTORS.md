@@ -68,7 +68,7 @@ flowchart LR
     API --> Inventory
     Rules --> Thermal[ThermalPolicy : seuils et hystérésis]
     Inventory --> Rules[InventoryRules : règles immuables]
-    Inventory --> Disk[inventory.json : remplacement atomique]
+    Inventory --> Disk[JSON dedies : journal transactionnel et commit atomique]
 ```
 
 `ServiceMain` est le serveur persistant ; `Main` conserve la démonstration S1.

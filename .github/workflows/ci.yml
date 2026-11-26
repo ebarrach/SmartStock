@@ -54,6 +54,10 @@ jobs:
         working-directory: .
         run: python code/connectivity/mqtt_smoke.py --jar code/smartstock-agent/target/scala-2.13/smartstock-agent.jar
 
+      - name: Test USB scan gateway and persistent scan-only mode
+        working-directory: .
+        run: python code/connectivity/usb_scan_smoke.py --jar code/smartstock-agent/target/scala-2.13/smartstock-agent.jar
+
   mobile-quality-and-tests:
     name: React Native - Quality & Tests
     runs-on: ubuntu-latest

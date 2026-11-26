@@ -895,7 +895,7 @@
     "/api/v1/events": {
       "post": {
         "operationId": "receiveEvent",
-        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine. DataMatrix accepte serial optionnel (1..20 caracteres). Une serie ne represente qu une unite. Premier retrait de serie inconnue autorise avec initialPresenceUnknown=true dans le mouvement. Retrait repete ou entree repetee refuses selon le journal persistant. Les anciens evenements sans serie restent compatibles et ne prouvent pas une presence unitaire. Reprise strictement limitee aux lots explicitement historical-uninventoried, avec lotCode et justification persistes. Lot non classe ou inventoried: serie inconnue refusee. Scan serialise: lot et expiration facultatifs verifies contre le lot physique unique. Le retrait initial trace presence initiale inconnue — retrait valide, sans entree fictive.",
+        "description": "weight.changed accepte grams, ou rawDelta + deviceSource exclusivement. La seconde variante exige la calibration persistante de cette source. Les deux exigent operationId, batchId et une source src partagee avec le scan ; jamais le dernier scan implicite.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1278,6 +1278,526 @@
           }
         }
       }
+    },
+    "/api/v1/scan-only-test": {
+      "get": {
+        "summary": "Etat du profil explicite de test sans balance",
+        "responses": {
+          "200": {
+            "description": "Mode et blocage eventuel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "enabled",
+                    "allowed",
+                    "scaleDeclaredAbsent",
+                    "message"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "allowed": {
+                      "type": "boolean"
+                    },
+                    "scaleDeclaredAbsent": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Test sans balance, uniquement active et absence declaree sans telemetrie contradictoire",
+        "description": "X-Command-Id identifie une operation armee AVANT scan. Meme ID/meme contenu = replay sans nouvelle bascule, y compris apres redemarrage. Nouveau scan volontaire = nouvel ID explicite. Presence inconnue ou sans serie : auto refuse, choix entry/exit requis ; retrait inconnu reserve au lot historique explicite. Aucun poids fictif.",
+        "parameters": [
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanOnlyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation de test persistee, ou replay du meme ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mode",
+                    "operationId",
+                    "movement",
+                    "snapshot"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "const": "test sans balance"
+                    },
+                    "operationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "movement": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Movement"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "snapshot": {
+                      "$ref": "#/components/schemas/Snapshot"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation refusee, aucun mouvement nouveau",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Operation refusee, aucun mouvement nouveau",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation refusee, aucun mouvement nouveau",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/{operationId}": {
+      "get": {
+        "summary": "Confirmation canonique : un scan recu seul reste pending",
+        "parameters": [
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Statut lu dans les mouvements persistants et inbox",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "operationId",
+                    "status",
+                    "movement"
+                  ],
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "confirmed"
+                      ]
+                    },
+                    "movement": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Movement"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation inconnue"
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          }
+        }
+      }
+    },
+    "/api/v1/batches/empty": {
+      "post": {
+        "summary": "Enregistrer un lot vide sans mouvement et sans doublon physique",
+        "parameters": [
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Batch"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "quantity": {
+                        "const": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lot vide cree ou lot physique existant reutilise ; quantites conservees",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides ou quantite non nulle"
+          },
+          "409": {
+            "description": "Correspondance ambigue ou ID reutilise"
+          },
+          "503": {
+            "description": "Ecriture non confirmee"
+          }
+        }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "operationId": "getServerSettings",
+        "responses": {
+          "200": {
+            "description": "Resultat canonique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides"
+          },
+          "409": {
+            "description": "Validation refusee"
+          },
+          "503": {
+            "description": "Persistance non confirmee"
+          }
+        }
+      }
+    },
+    "/api/v1/settings/sensors": {
+      "put": {
+        "operationId": "setSensorMode",
+        "responses": {
+          "200": {
+            "description": "Resultat canonique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides"
+          },
+          "409": {
+            "description": "Validation refusee"
+          },
+          "503": {
+            "description": "Persistance non confirmee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "withoutSensors": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "withoutSensors"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/calibration/tare": {
+      "post": {
+        "operationId": "captureScaleTare",
+        "responses": {
+          "200": {
+            "description": "Resultat canonique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides"
+          },
+          "409": {
+            "description": "Validation refusee"
+          },
+          "503": {
+            "description": "Persistance non confirmee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/calibration/confirm": {
+      "post": {
+        "operationId": "confirmScaleCalibration",
+        "responses": {
+          "200": {
+            "description": "Resultat canonique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides"
+          },
+          "409": {
+            "description": "Validation refusee"
+          },
+          "503": {
+            "description": "Persistance non confirmee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "referenceGrams": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "tareId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "source",
+                  "referenceGrams",
+                  "tareId"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/products/{productId}/archive": {
+      "post": {
+        "operationId": "archiveProduct",
+        "responses": {
+          "200": {
+            "description": "Resultat canonique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides"
+          },
+          "409": {
+            "description": "Validation refusee"
+          },
+          "503": {
+            "description": "Persistance non confirmee"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedGTIN": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedGTIN"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1308,8 +1828,12 @@
             "maxLength": 512
           },
           "unitWeightGrams": {
-            "type": "number",
-            "exclusiveMinimum": 0
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "null = masse non renseignee, jamais estimee. Le parcours scan/poids est indisponible sans masse unitaire positive connue."
           },
           "minStock": {
             "type": "integer",
@@ -1563,6 +2087,13 @@
           },
           "simulated": {
             "type": "boolean"
+          },
+          "archivedProductIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Definitions et historique conserves ; produits archives masques du stock operationnel."
           }
         }
       },
@@ -1993,6 +2524,182 @@
             "maxLength": 500
           }
         }
+      },
+      "ScanOnlyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gtin",
+          "lot",
+          "expiration"
+        ],
+        "properties": {
+          "gtin": {
+            "type": "string"
+          },
+          "lot": {
+            "type": "string"
+          },
+          "expiration": {
+            "type": "string",
+            "format": "date"
+          },
+          "serial": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "entry",
+              "exit"
+            ],
+            "default": "auto"
+          }
+        }
+      },
+      "ScaleStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "raw": {
+            "type": "number"
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "source",
+          "detected",
+          "samples",
+          "raw",
+          "observedAt"
+        ]
+      },
+      "TareCapture": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "number"
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "source",
+          "raw",
+          "capturedAt",
+          "id"
+        ]
+      },
+      "ScaleCalibration": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "tareRaw": {
+            "type": "number"
+          },
+          "loadedRaw": {
+            "type": "number"
+          },
+          "referenceGrams": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "measuredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "source",
+          "tareRaw",
+          "loadedRaw",
+          "referenceGrams",
+          "measuredAt",
+          "id"
+        ]
+      },
+      "ServerSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "withoutSensors": {
+            "type": "boolean"
+          },
+          "persistent": {
+            "type": "boolean"
+          },
+          "scales": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScaleStatus"
+            }
+          },
+          "tare": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TareCapture"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calibration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScaleCalibration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "archivedProducts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "withoutSensors",
+          "persistent",
+          "scales",
+          "tare",
+          "calibration",
+          "archivedProducts"
+        ]
       }
     }
   }

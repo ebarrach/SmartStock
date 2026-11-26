@@ -127,8 +127,8 @@ void lirePorte() {
 void envoyerPoids(const char* direction, long valeur, long difference) {
   char json[384];
   snprintf(json, sizeof(json),
-    "{\"sensor\":\"weight\",\"event\":\"%s\",\"value\":%ld,\"delta\":%ld,\"unit\":\"raw\",\"source\":\"%s\",\"operationId\":\"%s\",\"captureId\":\"%s\"}",
-    direction, valeur, difference, SECRET_MQTT_CLIENT_ID, operationId, captureId);
+    "{\"sensor\":\"weight\",\"event\":\"%s\",\"value\":%ld,\"delta\":%ld,\"rawDelta\":%ld,\"unit\":\"raw\",\"source\":\"%s\",\"operationId\":\"%s\",\"captureId\":\"%s\"}",
+    direction, valeur, difference, valeur - reference, SECRET_MQTT_CLIENT_ID, operationId, captureId);
   publier(json);
   operationId[0] = 0; // One movement per armed operation. QoS0 loss requires explicit operator recovery.
   captureId[0] = 0;
@@ -185,6 +185,12 @@ void lirePoids() {
 
   if (now - dernierAffichage >= 1000) {
     dernierAffichage = now;
+    // Periodic physical samples for server-side calibration; never a stock operation.
+    char telemetry[192];
+    snprintf(telemetry, sizeof(telemetry),
+      "{\"sensor\":\"weight\",\"event\":\"sample\",\"value\":%ld,\"delta\":0,\"unit\":\"raw\",\"source\":\"%s\"}",
+      moyenne, SECRET_MQTT_CLIENT_ID);
+    publier(telemetry);
     Serial.print("[POIDS] ");
     Serial.print(valeur);
     Serial.print(" | Reference ");

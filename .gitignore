@@ -33,8 +33,14 @@ local.properties
 *.key
 **/keystore.properties
 **/signing.properties
-#/code/smartstock-agent/data/
-#/code/data/
+# Runtime JSON: local inventories, transactions and isolated recipes. Models stay in config/.
+/code/data/*.json
+!/code/data/history_exemple_ancienne_version.json
+/ode/data/*.lock
+/code/data/.transaction-*.tmp
+/code/data/recipes/
+/code/data/backups/
+/code/smartstock-agent/data/*.lock
 /method/analysis/2026-10-29 – CONNECTIVITY_DECISIONS.md
 /method/analysis/2026-10-29 – CORRECTIF_MATERIEL.md
 /method/analysis/2026-10-29 – MVP_ACCEPTANCE.md

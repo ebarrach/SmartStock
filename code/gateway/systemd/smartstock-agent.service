@@ -5,13 +5,13 @@ Wants=network-online.target
 
 [Service]
 User=smartstock
-WorkingDirectory=/opt/smartstock/code/smartstock-agent
-Environment=SMARTSTOCK_DATA=/var/lib/smartstock/inventory.json
+WorkingDirectory=/opt/smartstock
+Environment=SMARTSTOCK_HOME=/opt/smartstock
+Environment=SMARTSTOCK_DATA_DIR=/opt/smartstock/code/data
 Environment=SMARTSTOCK_BIND=127.0.0.1
 Environment=SMARTSTOCK_PORT=8081
 EnvironmentFile=-/etc/smartstock.env
 ExecStart=/opt/java21/bin/java -Xms64m -Xmx256m -jar /opt/smartstock/code/smartstock-agent/target/scala-2.13/smartstock-agent.jar
-StateDirectory=smartstock
 Restart=on-failure
 RestartSec=3
 StandardOutput=journal

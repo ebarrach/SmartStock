@@ -51,13 +51,15 @@ final class Correlator(windowMillis: Long = 5000, toleranceGrams: Double = 0.5) 
       case Some(_)                                  => return reject("event_id_conflict")
       case None                                     => ()
     }
-    if (
-      input.source.trim.isEmpty || input.batchId != batch.id || batch.productId != product.id ||
-      !product.unitWeightGrams.isFinite || product.unitWeightGrams <= 0
-    )
+    if (input.source.trim.isEmpty || input.batchId != batch.id || batch.productId != product.id)
+      return reject("invalid_reference")
+    if (input.isInstanceOf[WeightInput] && product.unitWeightGrams.isEmpty)
+      return reject("unit_weight_missing")
+    if (product.unitWeightGrams.exists(w => !w.isFinite || w <= 0))
       return reject("invalid_reference")
     input match {
-      case scan: ScanInput if scan.dataMatrix != product.dataMatrix =>
+      case scan: ScanInput
+          if Product.normalizeGTIN(scan.dataMatrix) != Product.normalizeGTIN(product.dataMatrix) =>
         return reject("unknown_datamatrix")
       case weight: WeightInput if !weight.grams.isFinite || weight.grams == 0 =>
         return reject("invalid_weight")
@@ -77,12 +79,14 @@ final class Correlator(windowMillis: Long = 5000, toleranceGrams: Double = 0.5) 
     val seen = cleaned.seen.updated(input.id, input -> now)
     (next.scan, next.weight) match {
       case (Some(_), Some(weight)) =>
-        val magnitude = math.abs(weight.grams) / product.unitWeightGrams
+        if (product.unitWeightGrams.isEmpty) return reject("unit_weight_missing")
+        val unitWeightGrams = product.unitWeightGrams.get
+        val magnitude = math.abs(weight.grams) / unitWeightGrams
         val units = math.round(magnitude)
         val remaining = cleaned.copy(pending = cleaned.pending - key, seen = seen)
         if (
           units <= 0 || units > Int.MaxValue ||
-          math.abs(math.abs(weight.grams) - units * product.unitWeightGrams) > toleranceGrams
+          math.abs(math.abs(weight.grams) - units * unitWeightGrams) > toleranceGrams
         )
           remaining -> Left(CorrelationError("incoherent_weight"))
         else

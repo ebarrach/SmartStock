@@ -36,8 +36,8 @@ def stop(p):
         try:p.wait(10)
         except subprocess.TimeoutExpired:p.kill();p.wait(5)
 env=os.environ.copy();env['TEST_MQTT_PORT']=str(args.mqtt_port)
-env.update(SMARTSTOCK_BIND='127.0.0.1',SMARTSTOCK_PORT=str(args.api_port),SMARTSTOCK_MQTT_URL=f'tcp://127.0.0.1:{args.mqtt_port}',SMARTSTOCK_DEMO_DATA=str(artifacts/'inventory.json'))
-for k in ['SMARTSTOCK_MQTT_USER','SMARTSTOCK_MQTT_PASSWORD','SMARTSTOCK_CATALOG','ANEMONE_JAR','SMARTSTOCK_ANEMONE_URL']:env.pop(k,None)
+env.update(SMARTSTOCK_BIND='127.0.0.1',SMARTSTOCK_PORT=str(args.api_port),SMARTSTOCK_MQTT_URL=f'tcp://127.0.0.1:{args.mqtt_port}',SMARTSTOCK_DATA_DIR=str(artifacts/'data'),SMARTSTOCK_HOME=str(root))
+for k in ['SMARTSTOCK_MQTT_USER','SMARTSTOCK_MQTT_PASSWORD','SMARTSTOCK_CATALOG','ANEMONE_JAR','SMARTSTOCK_ANEMONE_URL','SMARTSTOCK_DATA','SMARTSTOCK_DEMO_DATA']:env.pop(k,None)
 env.update(SMARTSTOCK_TEMP_MIN='15',SMARTSTOCK_TEMP_MAX='25',SMARTSTOCK_HUMIDITY_MIN='30',SMARTSTOCK_HUMIDITY_MAX='60',SMARTSTOCK_CORRELATION_MS='5000',SMARTSTOCK_WEIGHT_TOLERANCE_GRAMS='0.5')
 for port in (args.mqtt_port,args.api_port):
     with socket.socket() as s:s.bind(('127.0.0.1',port))
@@ -147,7 +147,7 @@ try:
     for k in ['SMARTSTOCK_MQTT_USER','SMARTSTOCK_MQTT_PASSWORD']:publishing.pop(k,None)
     subprocess.run([sys.executable,str(root/'code/raspberry/publish_capture.py'),str(capture),'--port',str(args.mqtt_port)],env=publishing,check=True)
     time.sleep(1);assert quantity()==37
-    stored=json.loads((artifacts/'inventory.json').read_text(encoding='utf8'))
+    stored=dict(batches=json.loads((artifacts/'data/batches.json').read_text(encoding='utf8')),movements=json.loads((artifacts/'data/movements.json').read_text(encoding='utf8')))
     assert next(b['quantity'] for b in stored['batches'] if b['id']==batch)==37
     assert len([m for m in stored['movements'] if m['batchId']==batch])==3
     contractEnv=os.environ.copy();contractEnv['SMARTSTOCK_API_URL']=f'http://127.0.0.1:{args.api_port}'

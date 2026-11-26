@@ -32,7 +32,7 @@ def _normalize(text: str) -> str:
     return text
 
 
-def _fields(text: str) -> dict[str, str]:
+def _fields(text: str, require_serial: bool = True) -> dict[str, str]:
     pairs: list[tuple[str, str]] = []
     if text.startswith("("):
         matches = list(MARKERS.finditer(text))
@@ -69,12 +69,12 @@ def _fields(text: str) -> dict[str, str]:
     if len(keys) != len(set(keys)):
         raise GS1Error("AI GS1 duplique")
     result = dict(pairs)
-    if missing := REQUIRED - result.keys():
+    if missing := (REQUIRED if require_serial else REQUIRED - {"21"}) - result.keys():
         raise GS1Error("Champs manquants: " + ", ".join(sorted(missing)) + ". Verifier les separateurs GS ASCII 29")
     return result
 
 
-def validate_fields(value: dict) -> dict[str, str]:
+def validate_fields(value: dict, require_serial: bool = True) -> dict[str, str]:
     """Validate pre-separated values and return the canonical JSON for Scala."""
     if not isinstance(value, dict):
         raise GS1Error("Objet JSON attendu")
@@ -82,6 +82,8 @@ def validate_fields(value: dict) -> dict[str, str]:
     if not isinstance(gtin, str) or not re.fullmatch(r"[0-9]{14}", gtin):
         raise GS1Error("GTIN: 14 chiffres attendus")
     for name, item in (("lot", lot), ("serial", serial)):
+        if name == "serial" and item is None and not require_serial:
+            continue
         if not isinstance(item, str) or not 1 <= len(item) <= 20 or GS in item:
             raise GS1Error(f"{name}: 1 a 20 caracteres, sans separateur GS")
     if not isinstance(expiry, str):
@@ -92,13 +94,15 @@ def validate_fields(value: dict) -> dict[str, str]:
         raise GS1Error("Expiration: date ISO invalide") from exc
     if not 2000 <= parsed.year <= 2099:
         raise GS1Error("Expiration hors plage 2000-2099")
-    return {"gtin": gtin, "lot": lot, "serial": serial, "expiration": parsed.isoformat()}
+    result = {"gtin": gtin, "lot": lot, "expiration": parsed.isoformat()}
+    if serial is not None: result['serial'] = serial
+    return result
 
 
-def decode_gs1(code: str) -> dict[str, str]:
+def decode_gs1(code: str, require_serial: bool = True) -> dict[str, str]:
     if not isinstance(code, str) or not code:
         raise GS1Error("Code GS1 absent")
-    fields = _fields(_normalize(code))
+    fields = _fields(_normalize(code), require_serial)
     raw_expiry = fields["17"]
     if not re.fullmatch(r"[0-9]{6}", raw_expiry):
         raise GS1Error("Date GS1: AAMMJJ attendu")
@@ -110,4 +114,4 @@ def decode_gs1(code: str) -> dict[str, str]:
         expiry = date(year, month, day)
     except (ValueError, calendar.IllegalMonthError) as exc:
         raise GS1Error("Date GS1 invalide") from exc
-    return validate_fields({"gtin": fields["01"], "lot": fields["10"], "serial": fields["21"], "expiration": expiry.isoformat()})
+    return validate_fields({"gtin": fields["01"], "lot": fields["10"], "serial": fields.get("21"), "expiration": expiry.isoformat()}, require_serial)

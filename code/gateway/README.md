@@ -11,7 +11,7 @@ vérifier le compte avant activation. Aucun déploiement ou service n'est instal
 automatiquement par les scripts de développement. Commandes sur le Pi :
 `systemctl enable --now smartstock-agent`, `systemctl status smartstock-agent`,
 `journalctl -u smartstock-agent -f`. Restart=on-failure ; données sous
-/var/lib/smartstock, logs journald. Démarrage réel au boot : à tester physiquement.
+`/opt/smartstock/code/data` (`SMARTSTOCK_DATA_DIR`), logs journald. Donner les droits d’écriture au compte smartstock ; migrer explicitement un ancien inventaire avant activation. Démarrage réel au boot : à tester physiquement.
 
 L'API écoute en loopback8081. Pour le téléphone Wi-Fi, utiliser une terminaison
 HTTPS de confiance sur le réseau local ; ne pas ouvrir le port de développement

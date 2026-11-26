@@ -112,6 +112,15 @@ final class HardwareMqtt(
                   }
                 case _ => ()
               }
+              if (!refused && rawDelta.nonEmpty) {
+                val state =
+                  Await.result(inventory.ask[Inventory](InventoryActor.Get.apply), 5.seconds)
+                HardwareOperationAdapter.envelope(payload, state) match {
+                  case Right(Some(envelope)) => submitEnvelope(envelope)
+                  case Right(None) => () // Legacy or explicitly disabled: diagnostic raw data only.
+                  case Left(reason) => system.log.warn(reason)
+                }
+              }
           }
       }
     }
@@ -171,6 +180,8 @@ object HardwareMqtt {
             case HardwareMessage.Measure(sensor, value) =>
               Reading(sensor + ".measured", value, source, ts)
             case HardwareMessage.RawWeight(_, value, _) =>
+              Reading("weight.raw", value.toDouble, source, ts)
+            case HardwareMessage.RawSample(value) =>
               Reading("weight.raw", value.toDouble, source, ts)
             case HardwareMessage.Door(state) =>
               Reading("door.changed", if (state == "open") 1 else 0, source, ts)

@@ -25,7 +25,8 @@ final class ApiServer(
     clock: Clock = Clock.systemUTC(),
     stockInputs: Option[StockInputs] = None,
     environmentLimits: EnvironmentLimits = EnvironmentLimits(),
-    catalog: Catalog = Catalog(false, Vector.empty)
+    catalog: Catalog = Catalog(false, Vector.empty),
+    scanOnlySettings: ScanOnlySettings = ScanOnlySettings()
 )(implicit system: ActorSystem[_])
     extends AutoCloseable {
   private val executor = Executors.newFixedThreadPool(4)
@@ -56,8 +57,38 @@ final class ApiServer(
     "movements" -> state.movements.toJson,
     "readings" -> state.readings.toJson,
     "alerts" -> InventoryRules.alerts(state, clock, environmentLimits).toJson,
-    "simulated" -> JsBoolean(simulated)
+    "simulated" -> JsBoolean(simulated),
+    "archivedProductIds" -> state.serverSettings.toVector.flatMap(_.archivedProducts).toJson
   )
+
+  private def settingsJson(state: Inventory): JsObject = {
+    val config = state.serverSettings.getOrElse(
+      ServerSettings(withoutSensors =
+        scanOnlySettings.enabled && scanOnlySettings.scaleDeclaredAbsent
+      )
+    )
+    val sources = state.readings.filter(_.kind == "weight.raw").map(_.source).distinct
+    val scales = sources.map { source =>
+      val samples = ServerSettingsRules.samples(state, source, clock)
+      val last =
+        state.readings.reverseIterator.find(r => r.kind == "weight.raw" && r.source == source).get
+      JsObject(
+        "source" -> JsString(source),
+        "detected" -> JsBoolean(samples.size >= 3),
+        "samples" -> JsNumber(samples.size),
+        "raw" -> JsNumber(last.value),
+        "observedAt" -> JsString(last.observedAt)
+      )
+    }
+    JsObject(
+      "withoutSensors" -> JsBoolean(config.withoutSensors),
+      "persistent" -> JsBoolean(state.serverSettings.nonEmpty),
+      "scales" -> JsArray(scales),
+      "tare" -> config.tare.toJson,
+      "calibration" -> config.calibration.toJson,
+      "archivedProducts" -> config.archivedProducts.toJson
+    )
+  }
 
   private def body(x: HttpExchange): JsObject = {
     require(
@@ -89,6 +120,110 @@ final class ApiServer(
     )
       return Future.successful(error(DomainError("invalid_query", "Parametres inconnus")))
     (x.getRequestMethod, path) match {
+      case ("GET", p) if p.startsWith("/api/v1/operations/") =>
+        val operationId = java.util.UUID.fromString(p.stripPrefix("/api/v1/operations/")).toString
+        snapshot().map { state =>
+          val movement = state.movements.find(m =>
+            m.eventId == operationId || m.eventId == inputs.confirmationId(operationId)
+          )
+          if (movement.nonEmpty || state.sensorInputs.exists(_.operationId == operationId))
+            200 -> JsObject(
+              "operationId" -> JsString(operationId),
+              "status" -> JsString(if (movement.nonEmpty) "confirmed" else "pending"),
+              "movement" -> movement.map(_.toJson).getOrElse(JsNull)
+            )
+          else error(DomainError("operation_unknown", "Operation non recue", 404))
+        }
+      case ("GET", "/api/v1/settings") => snapshot().map(s => 200 -> settingsJson(s))
+      case ("PUT", "/api/v1/settings/sensors") =>
+        val data = body(x).fields
+        require(data.keySet == Set("withoutSensors"), "Mode explicite requis")
+        execute(SetSensorMode(data("withoutSensors").convertTo[Boolean]), commandId(x))
+      case ("POST", "/api/v1/calibration/tare") =>
+        val data = body(x).fields
+        require(data.keySet == Set("source"), "Source requise")
+        execute(CaptureScaleTare(data("source").convertTo[String]), commandId(x))
+      case ("POST", "/api/v1/calibration/confirm") =>
+        val data = body(x).fields
+        require(data.keySet == Set("source", "referenceGrams", "tareId"), "Calibration invalide")
+        execute(
+          CalibrateScale(
+            data("source").convertTo[String],
+            data("referenceGrams").convertTo[Double],
+            data("tareId").convertTo[String]
+          ),
+          commandId(x)
+        )
+      case ("POST", p) if p.startsWith("/api/v1/products/") && p.endsWith("/archive") =>
+        val data = body(x).fields
+        require(data.keySet == Set("expectedGTIN"), "Confirmation identite requise")
+        execute(
+          ArchiveProduct(
+            p.stripPrefix("/api/v1/products/").stripSuffix("/archive"),
+            data("expectedGTIN").convertTo[String]
+          ),
+          commandId(x)
+        )
+      case ("GET", "/api/v1/scan-only-test") =>
+        snapshot().map { state =>
+          val refusal = state.serverSettings match {
+            case Some(config) =>
+              if (config.withoutSensors) None
+              else
+                Some(
+                  DomainError("scan_only_disabled", "Mode avec capteurs : aucune simulation", 409)
+                )
+            case None => scanOnlySettings.refusal(state, clock)
+          }
+          val enabled =
+            state.serverSettings.map(_.withoutSensors).getOrElse(scanOnlySettings.enabled)
+          200 -> JsObject(
+            "enabled" -> JsBoolean(enabled),
+            "scaleDeclaredAbsent" -> JsBoolean(
+              state.serverSettings
+                .map(_.withoutSensors)
+                .getOrElse(scanOnlySettings.scaleDeclaredAbsent)
+            ),
+            "allowed" -> JsBoolean(refusal.isEmpty),
+            "message" -> JsString(
+              refusal
+                .map(_.message)
+                .getOrElse(
+                  "MODE SANS CAPTEURS : choix explicite du serveur, scan sans validation materielle"
+                )
+            )
+          )
+        }
+      case ("POST", "/api/v1/scan-only-test") =>
+        val data = body(x).fields
+        require(
+          Set("gtin", "lot", "expiration").subsetOf(data.keySet) &&
+            data.keySet.subsetOf(Set("gtin", "lot", "expiration", "serial", "direction")),
+          "Champs scan invalides"
+        )
+        val id = commandId(x)
+        val operation = ScanOnlyTest(
+          data("gtin").convertTo[String],
+          data("lot").convertTo[String],
+          data("expiration").convertTo[String],
+          data.get("serial").map(_.convertTo[String]),
+          data.get("direction").map(_.convertTo[String]).getOrElse("auto"),
+          scanOnlySettings
+        )
+        execute(operation, id).map {
+          case (200, state: JsObject) =>
+            val movement = state
+              .fields("movements")
+              .convertTo[Vector[JsObject]]
+              .find(_.fields("eventId") == JsString(id))
+            200 -> JsObject(
+              "mode" -> JsString("test sans balance"),
+              "operationId" -> JsString(id),
+              "movement" -> movement.getOrElse(JsNull),
+              "snapshot" -> state
+            )
+          case other => other
+        }
       // Read compatibility with the colleague's clients, using the same inventory actor.
       case ("GET", "/api/health") =>
         Future.successful(200 -> JsObject("status" -> JsString("ok")))
@@ -153,7 +288,19 @@ final class ApiServer(
         require(Set(3, 6, 12)(months), "Periode attendue : 3, 6 ou 12")
         snapshot()
           .flatMap(state =>
-            analysis.ask[JsObject](smartstock.analytics.AnalysisActor.Calculate(state, months, _))
+            analysis.ask[JsObject](
+              smartstock.analytics.AnalysisActor.Calculate(
+                state.copy(
+                  products = state.products
+                    .filterNot(p => state.serverSettings.exists(_.archivedProducts.contains(p.id))),
+                  batches = state.batches.filterNot(b =>
+                    state.serverSettings.exists(_.archivedProducts.contains(b.productId))
+                  )
+                ),
+                months,
+                _
+              )
+            )
           )
           .map(value => 200 -> value)
       case ("GET", "/api/v1/products") => snapshot().map(s => 200 -> s.products.toJson)
@@ -201,6 +348,24 @@ final class ApiServer(
           "Champs lot invalides"
         )
         execute(RegisterBatch(json.convertTo[Batch]), commandId(x))
+      case ("POST", "/api/v1/batches/empty") =>
+        val json = body(x)
+        require(
+          json.fields.keySet.subsetOf(
+            Set(
+              "id",
+              "productId",
+              "location",
+              "quantity",
+              "expiresOn",
+              "lotCode",
+              "serialInventoryStatus",
+              "traceabilityNote"
+            )
+          ),
+          "Champs lot invalides"
+        )
+        execute(EnsureEmptyBatch(json.convertTo[Batch]), commandId(x))
       case ("PUT", p) if p.startsWith("/api/v1/batches/") && p.endsWith("/traceability") =>
         val fields = body(x).fields
         require(
@@ -254,8 +419,11 @@ final class ApiServer(
         val data = fields("data").asJsObject.fields
         if (Set("datamatrix.detected", "weight.changed")(fields("type").convertTo[String])) {
           val kind = fields("type").convertTo[String]
-          val key = if (kind == "datamatrix.detected") "code" else "grams"
-          val required = Set("batchId", "operationId", key)
+          val rawWeight = kind == "weight.changed" && data.contains("rawDelta")
+          val key =
+            if (kind == "datamatrix.detected") "code" else if (rawWeight) "rawDelta" else "grams"
+          val required = Set("batchId", "operationId", key) ++ (if (rawWeight) Set("deviceSource")
+                                                                else Set.empty[String])
           require(
             required.subsetOf(data.keySet) && data.keySet.subsetOf(
               required ++
@@ -288,7 +456,8 @@ final class ApiServer(
             fields("seq").convertTo[Long],
             System.currentTimeMillis()
           )
-          inputs.submit(input).map {
+          (if (rawWeight) inputs.submitRaw(input, data("deviceSource").convertTo[String])
+           else inputs.submit(input)).map {
             case Left(e)  => error(e)
             case Right(_) => 200 -> JsObject("corr" -> JsString(id), "status" -> JsString("ok"))
           }
