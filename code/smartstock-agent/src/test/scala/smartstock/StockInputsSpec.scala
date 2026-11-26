@@ -14,7 +14,18 @@ class StockInputsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   implicit val ec: scala.concurrent.ExecutionContext = system.executionContext
   val initial = Inventory(
     products = Vector(Product("compresses", "Compresses", "DM-C", 10, 5)),
-    batches = Vector(Batch("LOT-C", "compresses", "cabinet", 40, "2027-06-30"))
+    batches = Vector(
+      Batch(
+        "LOT-C",
+        "compresses",
+        "cabinet",
+        40,
+        "2027-06-30",
+        Some("C"),
+        "historical-uninventoried",
+        "Inventaire historique sans series initiales"
+      )
+    )
   )
   def input(op: String, kind: String, value: JsValue, seq: Long, at: Long): SensorRecord =
     SensorRecord(UUID.randomUUID().toString, op, "cabinet-01", "LOT-C", kind, value, seq, at)

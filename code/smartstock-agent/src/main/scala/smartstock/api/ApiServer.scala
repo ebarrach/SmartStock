@@ -183,10 +183,39 @@ final class ApiServer(
       case ("POST", "/api/v1/batches") =>
         val json = body(x)
         require(
-          json.fields.keySet == Set("id", "productId", "location", "quantity", "expiresOn"),
+          Set("id", "productId", "location", "quantity", "expiresOn").subsetOf(
+            json.fields.keySet
+          ) &&
+            json.fields.keySet.subsetOf(
+              Set(
+                "id",
+                "productId",
+                "location",
+                "quantity",
+                "expiresOn",
+                "lotCode",
+                "serialInventoryStatus",
+                "traceabilityNote"
+              )
+            ),
           "Champs lot invalides"
         )
         execute(RegisterBatch(json.convertTo[Batch]), commandId(x))
+      case ("PUT", p) if p.startsWith("/api/v1/batches/") && p.endsWith("/traceability") =>
+        val fields = body(x).fields
+        require(
+          fields.keySet == Set("lotCode", "status", "note"),
+          "Champs de tracabilite invalides"
+        )
+        execute(
+          ConfigureBatchTraceability(
+            p.stripPrefix("/api/v1/batches/").stripSuffix("/traceability"),
+            fields("lotCode").convertTo[String],
+            fields("status").convertTo[String],
+            fields("note").convertTo[String]
+          ),
+          commandId(x)
+        )
       case ("POST", "/api/v1/movements") =>
         val fields = body(x).fields
         require(
@@ -230,7 +259,8 @@ final class ApiServer(
           require(
             required.subsetOf(data.keySet) && data.keySet.subsetOf(
               required ++
-                (if (kind == "datamatrix.detected") Set("serial") else Set.empty[String])
+                (if (kind == "datamatrix.detected") Set("serial", "lot", "expiration")
+                 else Set.empty[String])
             ),
             "Stock event fields invalid"
           )
@@ -250,7 +280,10 @@ final class ApiServer(
             fields("src").convertTo[String],
             data("batchId").convertTo[String],
             kind,
-            if (data.contains("serial")) JsObject("code" -> data(key), "serial" -> data("serial"))
+            if (Set("serial", "lot", "expiration").exists(data.contains)) JsObject(data.filter {
+              case (name, _) =>
+                Set("code", "serial", "lot", "expiration")(name)
+            })
             else data(key),
             fields("seq").convertTo[Long],
             System.currentTimeMillis()

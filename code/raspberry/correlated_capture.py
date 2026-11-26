@@ -11,6 +11,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
+def resolve_batch(fields, inventory, requested=None):
+    products=[p for p in inventory.get('products',[]) if p['dataMatrix']==fields['gtin']]
+    if len(products)!=1:raise ValueError('Ambiguous or missing product DataMatrix')
+    product=products[0]
+    matches=[b for b in inventory.get('batches',[]) if b['productId']==product['id'] and
+             b['location']=='cabinet' and b['expiresOn']==fields['expiration'] and
+             (b.get('lotCode')==fields['lot'] or b['id']==fields['gtin']+'-'+fields['lot'])]
+    if len(matches)!=1:raise ValueError('Ambiguous or missing physical batch mapping; explicit lotCode required for legacy IDs')
+    if requested is not None and matches[0]['id']!=requested:raise ValueError('Requested batch contradicts physical mapping')
+    return matches[0],product
+
 def envelopes(operation, scan, weight, calibration, batch_id, observed_at, inventory):
     op = str(UUID(operation))
     identities=[str(UUID(str(scan.get('id','')))),str(UUID(str(weight.get('captureId',''))))]
@@ -33,12 +44,8 @@ def envelopes(operation, scan, weight, calibration, batch_id, observed_at, inven
     if not math.isfinite(grams) or grams==0:raise ValueError('Nonzero finite calibrated delta required')
     from gs1_decoder import validate_fields
     fields=validate_fields(scan)
-    if batch_id != fields['gtin']+'-'+fields['lot']:
-        raise ValueError('GTIN-lot batch ID required; arbitrary legacy IDs need an explicit verified mapping')
-    batch=next((b for b in inventory.get('batches',[]) if b['id']==batch_id),None)
-    product=next((p for p in inventory.get('products',[]) if batch and p['id']==batch['productId']),None)
-    if not batch or not product or batch['location']!='cabinet' or batch['expiresOn']!=fields['expiration'] or product['dataMatrix']!=fields['gtin']:
-        raise ValueError('Capture GTIN/lot/expiry does not match canonical cabinet inventory')
+    batch,product=resolve_batch(fields,inventory,batch_id)
+    batch_id=batch['id']
     dates=[]; instants=[]
     for value in (scan.get('timestamp'),observed_at):
         if not isinstance(value,str):raise ValueError('UTC capture dates required')
@@ -49,7 +56,7 @@ def envelopes(operation, scan, weight, calibration, batch_id, observed_at, inven
     if abs((instants[1]-instants[0]).total_seconds())>90:raise ValueError('Capture timestamps exceed the explicit 90s operation window')
     result=[]
     for seq,(kind,data,ts) in enumerate([
-        ('datamatrix.detected',{'code':fields['gtin'],'serial':fields['serial']},dates[0]),
+        ('datamatrix.detected',{'code':fields['gtin'],'serial':fields['serial'],'lot':fields['lot'],'expiration':fields['expiration']},dates[0]),
         ('weight.changed',{'grams':grams},dates[1]),
     ],1):
         identity=identities[seq-1]

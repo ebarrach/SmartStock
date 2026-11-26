@@ -98,7 +98,8 @@ try:
     assert any(r['kind']=='humidity.measured' and r['value']==90 and r['source']==source for r in request('/snapshot')['readings'])
     product='mqtt-'+uuid4().hex[:8];gtin=f'{int(uuid4().hex[:11],16):014d}';batch=gtin+'-LOT'
     request('/products',{'id':product,'name':'MQTT test','dataMatrix':gtin,'unitWeightGrams':10,'minStock':1})
-    request('/batches',{'id':batch,'productId':product,'location':'cabinet','quantity':40,'expiresOn':'2027-12-31'})
+    request('/batches',{'id':batch,'productId':product,'location':'cabinet','quantity':40,'expiresOn':'2027-12-31',
+                        'lotCode':'LOT','serialInventoryStatus':'historical-uninventoried','traceabilityNote':'Synthetic historical fixture, no initial serial census'})
     sequence=0
     def operation(serial=None):
         op=str(uuid4()) # Software fixture, not a physical arming test.

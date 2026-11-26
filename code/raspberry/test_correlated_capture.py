@@ -29,3 +29,13 @@ class CaptureTests(unittest.TestCase):
     def test_old_or_undated_capture_refused(self):
         for timestamp in ['2026-11-26T10:05:00Z','2026-11-26T10:00:02']:
             with self.assertRaises(ValueError):self.build(observed_at=timestamp)
+    def test_explicit_legacy_id_mapping_without_renaming_stock(self):
+        legacy=dict(self.inventory['batches'][0],id='legacy-id',lotCode='LOT')
+        inventory=dict(self.inventory,batches=[legacy])
+        self.assertEqual(self.build(inventory=inventory,batch_id='legacy-id')[0]['data']['batchId'],'legacy-id')
+        with self.assertRaises(ValueError):
+            self.build(inventory=dict(self.inventory,batches=[dict(legacy,lotCode=None)]),batch_id='legacy-id')
+    def test_ambiguous_mapping_is_not_resolved_by_requested_id(self):
+        duplicate=dict(self.inventory['batches'][0],id='other-id',lotCode='LOT')
+        with self.assertRaises(ValueError):
+            self.build(inventory=dict(self.inventory,batches=self.inventory['batches']+[duplicate]))

@@ -895,7 +895,7 @@
     "/api/v1/events": {
       "post": {
         "operationId": "receiveEvent",
-        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine. DataMatrix accepte serial optionnel (1..20 caracteres). Une serie ne represente qu une unite. Premier retrait de serie inconnue autorise avec initialPresenceUnknown=true dans le mouvement. Retrait repete ou entree repetee refuses selon le journal persistant. Les anciens evenements sans serie restent compatibles et ne prouvent pas une presence unitaire.",
+        "description": "Enveloppe v1. Mesures: data={value}. DataMatrix: data={batchId,operationId,code}; poids: data={batchId,operationId,grams}. operationId UUID commun au couple. Stock inputs persistent avant ack; le mouvement est valide par le moteur Scala/Akka local. Ack signifie reception durable, pas necessairement mouvement confirme. Les quantites respectent les invariants de stock du domaine. DataMatrix accepte serial optionnel (1..20 caracteres). Une serie ne represente qu une unite. Premier retrait de serie inconnue autorise avec initialPresenceUnknown=true dans le mouvement. Retrait repete ou entree repetee refuses selon le journal persistant. Les anciens evenements sans serie restent compatibles et ne prouvent pas une presence unitaire. Reprise strictement limitee aux lots explicitement historical-uninventoried, avec lotCode et justification persistes. Lot non classe ou inventoried: serie inconnue refusee. Scan serialise: lot et expiration facultatifs verifies contre le lot physique unique. Le retrait initial trace presence initiale inconnue — retrait valide, sans entree fictive.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1191,6 +1191,93 @@
           }
         }
       }
+    },
+    "/api/v1/batches/{batchId}/traceability": {
+      "put": {
+        "operationId": "configureBatchTraceability",
+        "summary": "Declare explicitement le lot physique et le statut de reprise, sans modifier les quantites",
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Command-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchTraceability"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Classification persistee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs invalides",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot inconnu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflit de tracabilite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ecriture non confirmee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1264,6 +1351,27 @@
           "expiresOn": {
             "type": "string",
             "format": "date"
+          },
+          "lotCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "serialInventoryStatus": {
+            "type": "string",
+            "enum": [
+              "unclassified",
+              "historical-uninventoried",
+              "inventoried"
+            ],
+            "default": "unclassified"
+          },
+          "traceabilityNote": {
+            "type": "string",
+            "maxLength": 500
           }
         }
       },
@@ -1856,6 +1964,35 @@
           "sensors"
         ],
         "additionalProperties": false
+      },
+      "BatchTraceability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lotCode",
+          "status",
+          "note"
+        ],
+        "properties": {
+          "lotCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unclassified",
+              "historical-uninventoried",
+              "inventoried"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
       }
     }
   }

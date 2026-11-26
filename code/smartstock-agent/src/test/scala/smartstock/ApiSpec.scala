@@ -44,6 +44,20 @@ class ApiSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
         assert(request("POST", "/api/v1/products", product.toJson.compactPrint).statusCode() == 200)
         val batch = Batch("LOT-C", product.id, "cabinet", 40, "2027-06-30")
         assert(request("POST", "/api/v1/batches", batch.toJson.compactPrint).statusCode() == 200)
+        assert(
+          request(
+            "PUT",
+            "/api/v1/batches/LOT-C/traceability",
+            """{"lotCode":"C","status":"historical-uninventoried","note":"Reprise historique explicitement verifiee"}"""
+          ).statusCode() == 200
+        )
+        assert(
+          request("GET", "/api/v1/snapshot")
+            .body()
+            .parseJson
+            .asJsObject
+            .fields("movements") == JsArray()
+        )
         val command = """{"batchId":"LOT-C","delta":-1}"""
         val key = UUID.randomUUID().toString
         assert(request("POST", "/api/v1/movements", command, key).statusCode() == 200)

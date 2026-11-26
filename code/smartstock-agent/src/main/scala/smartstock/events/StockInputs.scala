@@ -56,6 +56,21 @@ final class StockInputs(
         if (batch.isEmpty || product.isEmpty)
           Future.successful(Left(DomainError("unknown_batch", "Lot inconnu", 404)))
         else if (
+          input.kind == "datamatrix.detected" && input.value.isInstanceOf[JsObject] && {
+            val metadata = input.value.asJsObject.fields
+            val lot = metadata.get("lot").map(_.convertTo[String]).orElse(batch.get.lotCode)
+            lot.isEmpty || batch.get.lotCode != lot ||
+            metadata.get("expiration").exists(_.convertTo[String] != batch.get.expiresOn) ||
+            initial.batches.count(b =>
+              b.productId == product.get.id && b.location == batch.get.location &&
+                b.expiresOn == batch.get.expiresOn && (b.lotCode == lot || b.id == product.get.dataMatrix + "-" + lot.get)
+            ) != 1
+          }
+        )
+          Future.successful(
+            Left(DomainError("ambiguous_batch", "Lot physique absent, incoherent ou ambigu", 409))
+          )
+        else if (
           initial.receipts.contains(businessId(input.operationId)) && !initial.sensorInputs.exists(
             _.id == input.id
           )
