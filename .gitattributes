@@ -1,2 +1,4 @@
 # PDF streams and xref offsets must never undergo line-ending conversion.
 *.pdf binary
+# scalafmt compares line endings; keep Scala sources reproducible on Windows and CI.
+*.scala text eol=lf

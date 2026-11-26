@@ -81,14 +81,62 @@ final class ApiServer(
       .getOrElse("")
 
   private def route(x: HttpExchange): Future[(Int, JsValue)] = {
-    val path = x.getRequestURI.getPath
+    val path = x.getRequestURI.getPath.stripSuffix("/")
     val query = Option(x.getRequestURI.getRawQuery)
     if (
-      query.nonEmpty && path != "/api/v1/analytics" && !(path == "/api/v1/stock" && query
+      query.nonEmpty && path != "/api/expirations" && path != "/api/v1/analytics" && !(path == "/api/v1/stock" && query
         .exists(q => q == "location=cabinet" || q == "location=bag"))
     )
       return Future.successful(error(DomainError("invalid_query", "Parametres inconnus")))
     (x.getRequestMethod, path) match {
+      // Read compatibility with the colleague's clients, using the same inventory actor.
+      case ("GET", "/api/health") =>
+        Future.successful(200 -> JsObject("status" -> JsString("ok")))
+      case ("GET", "/api/inventory") =>
+        snapshot().map(s =>
+          200 -> JsObject(
+            "stock" -> JsObject(
+              s.batches.filter(_.location == "cabinet").map(b => b.id -> JsNumber(b.quantity)).toMap
+            )
+          )
+        )
+      case ("GET", "/api/expirations") =>
+        val parts = query.toVector.flatMap(_.split("&")).map(_.split("=", 2))
+        require(
+          parts.size <= 1 && parts.forall(p => p.length == 2 && p(0) == "days"),
+          "Parametres expiration invalides"
+        )
+        val days = parts.headOption.map(_(1).toInt).getOrElse(30)
+        require(days >= 0 && days <= 3650, "days invalide")
+        val limit = java.time.LocalDate.now(clock).plusDays(days)
+        snapshot().map { state =>
+          val items = state.batches
+            .filter(b =>
+              b.location == "cabinet" && b.quantity > 0 && !java.time.LocalDate
+                .parse(b.expiresOn)
+                .isAfter(limit)
+            )
+            .map { b =>
+              val product = state.products.find(_.id == b.productId).get
+              JsObject(
+                "batchId" -> JsString(b.id),
+                "gtin" -> JsString(product.dataMatrix),
+                "quantity" -> JsNumber(b.quantity),
+                "expiration" -> JsString(b.expiresOn)
+              )
+            }
+          200 -> JsObject("items" -> JsArray(items))
+        }
+      case ("POST", "/api/scans") =>
+        Future.successful(
+          error(
+            DomainError(
+              "operation_required",
+              "Utiliser /api/v1/events avec operationId partage et poids calibre ; aucun scan en attente implicite",
+              409
+            )
+          )
+        )
       case ("GET", "/api/v1/health") =>
         Future.successful(
           200 -> JsObject("status" -> JsString("ok"), "simulated" -> JsBoolean(simulated))

@@ -53,6 +53,29 @@ class ApiSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
         val snapshot = request("GET", "/api/v1/snapshot").body().parseJson.asJsObject.fields
         assert(snapshot("batches").convertTo[Vector[Batch]].head.quantity == 39)
         assert(snapshot("movements").convertTo[Vector[Movement]].size == 1)
+        assert(request("GET", "/api/health").statusCode() == 200)
+        assert(
+          request("GET", "/api/inventory")
+            .body()
+            .parseJson
+            .asJsObject
+            .fields("stock")
+            .asJsObject
+            .fields("LOT-C") == JsNumber(39)
+        )
+        assert(
+          request("GET", "/api/expirations?days=3650")
+            .body()
+            .parseJson
+            .asJsObject
+            .fields("items")
+            .convertTo[Vector[JsValue]]
+            .size == 1
+        )
+        assert(request("GET", "/api/expirations?days=-1").statusCode() == 400)
+        assert(request("GET", "/api/expirations?days=30&days=60").statusCode() == 400)
+        assert(request("POST", "/api/scans", "{}").statusCode() == 409)
+        assert(request("GET", "/api/inventory").body().contains("39"))
         assert(!snapshot.contains("receipts"))
         assert(request("GET", "/api/v1/products/unknown").statusCode() == 404)
         assert(request("GET", "/api/v1/stock?location=bag").body() == "[]")

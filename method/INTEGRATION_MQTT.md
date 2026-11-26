@@ -2,6 +2,16 @@
 
 Branche de travail : `integration/scala-akka-develop`. Sources matérielles reprises de `feature/scala-akka`, commit `05f9524`. Cette étape n’est pas une validation de la version fusionnée sur matériel, ni une clôture de l’intégration complète.
 
+## Compatibilité et décisions de fusion
+
+Les copies antérieures du mobile, des contrats et de la CI présentes sur la branche source ne remplacent pas la refonte, les graphiques, les suggestions, la signature Android ni les tests actuels. Les producteurs matériels sont repris dans `code/arduino/` et `code/raspberry/`, avec les adaptations ci-dessous. Les anciens fichiers Scala à la racine de `src/main/scala` définissaient des classes homonymes et un second moteur/API : ils ne sont pas compilés ni copiés dans la version intégrée. Leur code original reste consultable dans `feature/scala-akka` (`05f9524`). Les fichiers `stock.json`, `serials.json`, `history.json` de cette branche ne deviennent jamais le stockage canonique ; aucune migration implicite des données utilisateur n'est effectuée. Les anciennes copies Anemone ne sont pas réintroduites.
+
+Le serveur unique fournit aussi les lectures historiques `GET /api/health`, `GET /api/inventory` (`stock` par identifiant de lot de l'armoire) et `GET /api/expirations?days=30` (`items`, avec les noms de champs historiques). Les dates expirées sont incluses ; seuls les lots non vides sont concernés. Les clients doivent préférer `/api/v1` et `/api/v1/alerts`. L'ancien `POST /api/scans` répond **409 operation_required** : il n'enregistre aucune opération implicite. Aucune réponse 202 trompeuse ni ancien serveur sur 8080 n'est créé.
+
+L'alerte canonique `door_open` devient visible dans `/api/v1/alerts` et le snapshot après 60 secondes d'ouverture observée ; les répétitions d'état ouvert ne repoussent pas l'échéance, et une fermeture efface l'alerte. Elle est calculée à la lecture avec l'horloge du serveur, sans second timer/acteur. Après une longue absence de mesures ou une reconnexion, l'état physique reste à vérifier : le backend ne peut pas inférer une fermeture non reçue. La fenêtre des 1000 lectures peut raccourcir l'historique observable ; aucun état physique manquant n'est inventé.
+
+Le suivi de présence **par numéro de série** de l'ancien workflow n'est pas assimilé à la déduplication par événement. Les stocks existants ne contiennent pas cet inventaire unitaire initial. Ce point et la recette physique restent à résoudre avant clôture de l'intégration complète ; la branche `develop` reste préservée tant qu'un parcours central demeure incomplet.
+
 ## Chemin canonique
 
 `ServiceMain` conserve l’unique `InventoryActor`, le fichier d’inventaire atomique, les acteurs/services et l’API de `develop`. `HardwareMqtt` ajoute **un** client Paho et un abonnement. Aucun `SmartStockManager`, second serveur `SmartStockApi` ou fichier `stock.json`/`history.json` concurrent n’est démarré.
@@ -81,6 +91,19 @@ Définir `SMARTSTOCK_MQTT_USER` et `SMARTSTOCK_MQTT_PASSWORD` localement si le b
 Pour les producteurs Python : `python -m pip install -r code/raspberry/requirements.txt`, puis `python code/raspberry/smartstock_phidget_mqtt.py` ou `python code/raspberry/smartstock_qrbot_http.py`. Broker configurable par `SMARTSTOCK_MQTT_HOST`, `SMARTSTOCK_MQTT_PORT`, topic/utilisateur identiques ; saisie locale du mot de passe. SDK/driver Phidget et accès matériel requis.
 
 ## Recette physique restante
+
+### Recette logicielle reproductible
+
+Depuis la racine, après assemblage du candidat :
+
+```powershell
+python -m pip install -r code/connectivity/requirements-mqtt-test.txt
+python code/connectivity/mqtt_smoke.py --jar carnet-de-bord/smartstock-mqtt-candidate.jar --java java
+```
+
+JDK 21 requis. Options `--api-port 18112 --mqtt-port 18894` ; les ports doivent être libres. Le test crée un stockage neuf dans un dossier temporaire dont il affiche le chemin, démarre et arrête ses propres processus. Ce dossier conserve les logs et le JSON de recette. Aucun stockage utilisateur n'est chargé. Le broker est limité à 127.0.0.1 ; les publications, coefficients de calibration et identités produits sont **synthétiques**. Le test couvre panne/reprise du broker, statuts capteurs, alertes température/humidité/porte, brut sans stock, doublons, opérations similaires, persistance/replay après redémarrage et contrats HTTP. Les coefficients du test ne sont jamais un profil matériel.
+
+### Sur matériel réel
 
 1. Stockage de recette isolé ; carte/Phidget/scanner identifiés. Vérifier 1 abonnement.
 2. Modifier température/humidité : une lecture datée dans `/api/v1/readings`, même valeur dans le mobile ; ventilation logique et alertes sans doublon lié à un second moteur.

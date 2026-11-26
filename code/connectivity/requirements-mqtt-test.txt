@@ -1,0 +1,3 @@
+-r requirements-test.txt
+amqtt==0.12.2
+paho-mqtt==2.2.0

@@ -1043,6 +1043,154 @@
           }
         ]
       }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Compatibilite historique : sante",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Lecture du stockage canonique, sans moteur historique concurrent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory": {
+      "get": {
+        "summary": "Compatibilite historique : quantites des lots de l armoire",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Lecture du stockage canonique, sans moteur historique concurrent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "stock"
+                  ],
+                  "properties": {
+                    "stock": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expirations": {
+      "get": {
+        "summary": "Compatibilite historique : lots expirant avant la limite, y compris deja expires",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Lecture du stockage canonique, sans moteur historique concurrent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "batchId",
+                          "gtin",
+                          "quantity",
+                          "expiration"
+                        ],
+                        "properties": {
+                          "batchId": {
+                            "type": "string"
+                          },
+                          "gtin": {
+                            "type": "string",
+                            "description": "Reference DataMatrix du produit ; aucun GTIN invente"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "expiration": {
+                            "type": "string",
+                            "format": "date"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parametre days invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3650,
+              "default": 30
+            }
+          }
+        ]
+      }
+    },
+    "/api/scans": {
+      "post": {
+        "summary": "Ancienne association implicite refusee ; utiliser les evenements v1 correles",
+        "deprecated": true,
+        "responses": {
+          "409": {
+            "description": "operation_required : aucune modification du stock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

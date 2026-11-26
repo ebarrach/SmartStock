@@ -363,7 +363,12 @@ object InventoryRules {
             Some("humidity_alert")
           case "sensor.failed" if r.value == 1      => Some("sensor_failure")
           case "connection.changed" if r.value == 0 => Some("connection_lost")
-          case _                                    => None
+          case "door.changed" if r.value == 1 && {
+                val opened = readings.reverseIterator.takeWhile(_.value == 1).toVector.last
+                !Instant.parse(opened.observedAt).plusSeconds(60).isAfter(clock.instant())
+              } =>
+            Some("door_open")
+          case _ => None
         }
         code.map(c => Alert(c, r.source, s"${r.kind}: ${r.value}"))
       }
