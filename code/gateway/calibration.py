@@ -30,7 +30,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('csv', help='Columns raw,grams; include tare at grams=0')
     parser.add_argument('output')
+    parser.add_argument('--device-source', required=True,
+                        help='Actual MQTT source/client ID of the measured HX711 device')
     args = parser.parse_args()
+    if not args.device_source.strip() or len(args.device_source) > 120:
+        parser.error('A non-empty device source (at most 120 characters) is required')
     with open(args.csv, newline='', encoding='utf-8') as source:
         points = [(float(row['raw']), float(row['grams'])) for row in csv.DictReader(source)]
-    Path(args.output).write_text(json.dumps(calibrate(points), indent=2) + '\n', encoding='utf-8')
+    profile = dict(calibrate(points), deviceSource=args.device_source)
+    # A measured profile is never silently replaced by another calibration run.
+    with Path(args.output).open('x', encoding='utf-8') as destination:
+        destination.write(json.dumps(profile, indent=2) + '\n')
