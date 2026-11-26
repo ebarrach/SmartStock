@@ -203,7 +203,7 @@ The React Native application is located in:
 
 Requirements:
 
-- Node.js 22.11 or newer
+- Node.js 22.12 or newer
 - npm
 - React Native development environment
 
@@ -216,6 +216,10 @@ npm start
 ```
 
 For reproducible installation using the committed lockfile, use `npm ci`.
+Metro uses port **8082**, leaving **8081** for the Scala API.
+For PC, run `npm run web` and open `http://127.0.0.1:5173`; select `/agent`
+in the connection settings to use the development proxy. `npm run build:web`
+builds the same shared React Native screens for the browser.
 In a second terminal, run `npm run android` with an Android SDK and a configured
 emulator or phone. iOS development requires macOS, Xcode and CocoaPods.
 

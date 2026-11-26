@@ -4,11 +4,70 @@ import {
   parseSnapshot,
 } from '../src/data/repository';
 
+test('delai reseau explicite puis reprise API sans donnees fictives', async () => {
+  const snapshot = {
+    ...(await new MockStockRepository().load()),
+    simulated: false,
+  };
+  let available = false;
+  const transport = jest.fn((_url: unknown, init?: RequestInit) => {
+    if (available)
+      return Promise.resolve({
+        ok: true,
+        json: async () => snapshot,
+      } as Response);
+    return new Promise<Response>((_resolve, reject) =>
+      init?.signal?.addEventListener('abort', () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      }),
+    );
+  });
+  jest.useFakeTimers();
+  try {
+    const repository = new ApiStockRepository(
+      'http://192.168.0.143:18099',
+      transport,
+    );
+    const pending = repository.load().then(
+      () => '',
+      (error: Error) => error.message,
+    );
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(await pending).toContain('Délai dépassé');
+    available = true;
+    await expect(repository.load()).resolves.toEqual(snapshot);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('le fetch navigateur conserve son contexte global', async () => {
+  const original = globalThis.fetch;
+  const snapshot = await new MockStockRepository().load();
+  globalThis.fetch = jest.fn(function (this: unknown) {
+    expect(this).toBe(globalThis);
+    return Promise.resolve({
+      ok: true,
+      json: async () => snapshot,
+    } as Response);
+  });
+  try {
+    await expect(
+      new ApiStockRepository('http://localhost:8081').load(),
+    ).resolves.toEqual(snapshot);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test('le mock respecte le contrat de snapshot et conserve les lots separes', async () => {
   const snapshot = await new MockStockRepository().load();
   expect(snapshot.simulated).toBe(true);
-  expect(snapshot.batches.map(b => b.location)).toEqual(['cabinet', 'bag']);
-  expect(snapshot.batches.map(b => b.quantity)).toEqual([40, 4]);
+  expect(snapshot.products).toHaveLength(7);
+  expect(snapshot.batches.every(b => b.location === 'cabinet')).toBe(true);
+  expect(snapshot.movements.some(m => m.kind === 'consumption')).toBe(true);
 });
 test('le repository HTTP utilise le meme contrat et signale le mode recu', async () => {
   const demo = await new MockStockRepository().load();

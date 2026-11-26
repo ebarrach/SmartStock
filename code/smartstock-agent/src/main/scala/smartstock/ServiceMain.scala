@@ -6,13 +6,23 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.util.Timeout
 import smartstock.api.ApiServer
 import smartstock.inventory._
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import java.time.Clock
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import spray.json._
+import smartstock.inventory.InventoryJson._
 
 object ServiceMain {
   def main(args: Array[String]): Unit = {
+    val path = Paths.get(
+      if (args.contains("--demo"))
+        sys.env.getOrElse("SMARTSTOCK_DEMO_DATA", "data/demo-inventory.json")
+      else sys.env.getOrElse("SMARTSTOCK_DATA", "data/inventory.json")
+    )
+    InventoryProcessLock.withLock(path)(storage => run(args, storage))
+  }
+  private def run(args: Array[String], storage: Path): Unit = {
     val demo = args.contains("--demo")
     def setting(name: String, fallback: Double): Double =
       sys.env.get(name).map(_.toDouble).getOrElse(fallback)
@@ -31,19 +41,32 @@ object ServiceMain {
     val port = sys.env.getOrElse("SMARTSTOCK_PORT", "8081").toInt
     require(port >= 0 && port <= 65535, "Invalid API port")
     val store = new FileInventoryStore(
-      Paths.get(sys.env.getOrElse("SMARTSTOCK_DATA", "data/inventory.json"))
+      storage,
+      allowExamples = demo
     )
-    if (demo && store.load() == Inventory()) {
-      val product = Product("compresses", "Compresses", "demo-compresses", 10, 5)
-      val seeded = Inventory(
-        products = Vector(product),
-        batches = Vector(
-          Batch("LOT-C", product.id, "cabinet", 40, "2027-06-30"),
-          Batch("LOT-S", product.id, "bag", 4, "2027-06-30")
-        )
+    val catalogPath = Paths.get(
+      sys.env.getOrElse(
+        "SMARTSTOCK_CATALOG",
+        if (demo) "config/demo-catalog.json" else "config/catalog.json"
       )
-      store.save(seeded)
-    }
+    )
+    val catalog = Catalog.load(catalogPath, demo)
+    val original = store.load()
+    val catalogued = catalog.reconcile(original)
+    require(
+      !demo || original == Inventory() || original.dataset == "demo",
+      "Stockage non marque Demo : choisir un nouveau SMARTSTOCK_DEMO_DATA, aucun stock existant modifie"
+    )
+    val initialized = if (demo && original == Inventory()) {
+      val fixture =
+        java.nio.file.Files.readString(Paths.get("config/demo-history.json")).parseJson.asJsObject
+      require(
+        fixture.fields("exampleData") == JsBoolean(true),
+        "Jeu de demonstration marque requis"
+      )
+      catalog.reconcile(fixture.fields("inventory").convertTo[Inventory].copy(dataset = "demo"))
+    } else catalogued
+    if (initialized != original) store.save(initialized)
     implicit val system: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "SmartStockService")
     val inventory = system.systemActorOf(
       InventoryActor(store),
@@ -61,7 +84,8 @@ object ServiceMain {
       demo,
       Clock.systemUTC(),
       Some(new smartstock.events.StockInputs(inventory, windowMillis, toleranceGrams)),
-      limits
+      limits,
+      catalog
     )
     server.start()
     println(s"SmartStock API http://127.0.0.1:${server.port}/api/v1/health (simulation=$demo)")

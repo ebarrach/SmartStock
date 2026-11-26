@@ -3,25 +3,35 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
+    "android": "react-native run-android --port 8082",
     "ios": "react-native run-ios",
     "lint": "eslint .",
-    "start": "react-native start",
+    "start": "react-native start --port 8082",
     "test": "jest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "web": "vite",
+    "build:web": "vite build",
+    "preview:web": "vite preview"
   },
   "dependencies": {
-    "react": "19.1.0",
-    "react-native": "0.81.5",
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-native/new-app-screen": "0.81.5",
-    "react-native-safe-area-context": "^5.5.2"
+    "lucide-react": "^1.77.0",
+    "lucide-react-native": "^1.77.0",
+    "react": "19.1.0",
+    "react-dom": "^19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-svg": "^15.16.1",
+    "react-native-web": "^0.21.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
+    "@playwright/test": "^1.65.1",
     "@react-native-community/cli": "20.0.0",
     "@react-native-community/cli-platform-android": "20.0.0",
     "@react-native-community/cli-platform-ios": "20.0.0",
@@ -31,14 +41,18 @@
     "@react-native/typescript-config": "0.81.5",
     "@types/jest": "^29.5.13",
     "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.3.0",
     "@types/react-test-renderer": "^19.1.0",
+    "@vitejs/plugin-react": "^6.3.0",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
     "prettier": "2.8.8",
     "react-test-renderer": "19.1.0",
-    "typescript": "^5.8.3"
+    "sharp": "^0.35.5",
+    "typescript": "^5.8.3",
+    "vite": "^8.3.8"
   },
   "engines": {
-    "node": ">=22.11.0"
+    "node": ">=22.12.0"
   }
 }

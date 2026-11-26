@@ -7,6 +7,8 @@ apply plugin: "com.facebook.react"
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
+    // Keep standalone bundling bounded on developer PCs; no Metro server is needed at runtime.
+    extraPackagerArgs = ["--max-workers", "2"]
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
@@ -72,6 +74,39 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// Secrets are supplied by the local interactive build script, never Gradle properties in Git.
+def releaseSigning = ['STORE_FILE', 'STORE_PASSWORD', 'KEY_ALIAS', 'KEY_PASSWORD'].collectEntries {
+    [(it): System.getenv("SMARTSTOCK_RELEASE_${it}")]
+}
+def hasReleaseSigning = releaseSigning.values().every { it != null && !it.isEmpty() }
+if (hasReleaseSigning && (new File(releaseSigning.STORE_FILE).name == 'debug.keystore' || releaseSigning.KEY_ALIAS == 'androiddebugkey')) {
+    throw new GradleException('La cle debug est interdite pour signer la release.')
+}
+if (releaseSigning.values().any { it != null } && !hasReleaseSigning) {
+    throw new GradleException('Configuration de signature release incomplete (variables SMARTSTOCK_RELEASE_*).')
+}
+def localHttpHost = providers.gradleProperty('smartstockLocalHttpHost').getOrElse('')
+if (localHttpHost) {
+    def parts = localHttpHost.split('\\.', -1)
+    def valid = parts.length == 4 && parts.every { it ==~ /\d{1,3}/ && it.toInteger() <= 255 } &&
+        (parts[0] == '10' || (parts[0] == '192' && parts[1] == '168') ||
+         (parts[0] == '172' && parts[1].toInteger() >= 16 && parts[1].toInteger() <= 31))
+    if (!valid) throw new GradleException('smartstockLocalHttpHost doit etre une adresse IPv4 privee exacte (sans port).')
+}
+def networkRes = layout.buildDirectory.dir('generated/res/localNetwork')
+def generateNetworkSecurity = tasks.register('generateSmartStockNetworkSecurity') {
+    inputs.property('localHttpHost', localHttpHost)
+    outputs.dir(networkRes)
+    doLast {
+        def xml = new File(networkRes.get().asFile, 'xml/smartstock_network_security_config.xml')
+        xml.parentFile.mkdirs()
+        xml.text = '<network-security-config><base-config cleartextTrafficPermitted="false" />' +
+            (localHttpHost ? '<domain-config cleartextTrafficPermitted="true"><domain includeSubdomains="false">' + localHttpHost + '</domain></domain-config>' : '') +
+            '</network-security-config>'
+    }
+}
+tasks.named('preBuild').configure { dependsOn(generateNetworkSecurity) }
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -84,7 +119,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        manifestPlaceholders = [usesCleartextTraffic: 'false', smartstockNetworkSecurityConfig: '@xml/smartstock_network_security_config']
     }
+    sourceSets.main.res.srcDir(networkRes)
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -92,15 +129,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseSigning.STORE_FILE)
+                storePassword releaseSigning.STORE_PASSWORD
+                keyAlias releaseSigning.KEY_ALIAS
+                keyPassword releaseSigning.KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            manifestPlaceholders = [usesCleartextTraffic: 'true', smartstockNetworkSecurityConfig: '@xml/debug_network_security_config']
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Without a private release key, Gradle produces an UNSIGNED APK for verification only.
+            if (hasReleaseSigning) signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
@@ -108,6 +153,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.core:core-splashscreen:1.2.0")
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

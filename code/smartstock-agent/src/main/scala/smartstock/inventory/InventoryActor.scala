@@ -15,10 +15,44 @@ trait InventoryStore {
   def load(): Inventory
   def save(state: Inventory): Unit
 }
-final class FileInventoryStore(path: Path) extends InventoryStore {
+final class FileInventoryStore(path: Path, allowExamples: Boolean = false) extends InventoryStore {
   def load(): Inventory =
     if (Files.exists(path)) {
       val state = Files.readString(path, UTF_8).parseJson.convertTo[Inventory]
+      require(allowExamples || state.dataset != "demo", "Stockage Demo interdit en mode reel")
+      require(Set("real", "legacy", "demo")(state.dataset), "Mode du stockage invalide")
+      require(
+        state.dailyMeasures.forall(d =>
+          d.count > 0 && d.min.isFinite && d.max.isFinite && d.min <= d.max && scala.util
+            .Try(java.time.LocalDate.parse(d.day))
+            .isSuccess
+        ),
+        "Agregats de mesures invalides"
+      )
+      require(
+        state.readings.forall(r =>
+          r.value.isFinite && scala.util.Try(java.time.Instant.parse(r.observedAt)).isSuccess
+        ),
+        "Historique de mesures invalide"
+      )
+      require(
+        state.baselines.values.forall(b =>
+          b.quantity >= 0 && scala.util.Try(java.time.Instant.parse(b.recordedAt)).isSuccess
+        ),
+        "Etat initial de stock invalide"
+      )
+      require(
+        state.movements.map(_.id).distinct.size == state.movements.size,
+        "Identifiants de mouvements dupliques"
+      )
+      require(
+        state.movements.forall(m =>
+          m.id.nonEmpty && m.eventId.nonEmpty && m.quantityAfter >= 0 && scala.util
+            .Try(java.time.Instant.parse(m.occurredAt))
+            .isSuccess
+        ),
+        "Historique invalide"
+      )
       val clock = Clock.systemUTC()
       val checked = state.products
         .foldLeft[Either[DomainError, Inventory]](Right(Inventory())) { (current, product) =>
