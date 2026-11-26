@@ -93,8 +93,9 @@ final class HardwareMqtt(
                 case HardwareMessage.RawWeight(_, _, delta) =>
                   reading.copy(kind = "weight.delta.raw", value = delta.toDouble)
               }
+              var refused = false
               (Vector(reading) ++ rawDelta.toVector).zipWithIndex.foreach {
-                case (observation, index) =>
+                case (observation, index) if !refused =>
                   val observationId =
                     if (index == 0) id
                     else UUID.nameUUIDFromBytes((id + ":raw-delta").getBytes(UTF_8)).toString
@@ -104,9 +105,12 @@ final class HardwareMqtt(
                     ),
                     5.seconds
                   ) match {
-                    case Left(error) => system.log.warn("MQTT observation refused: {}", error.code)
-                    case Right(_)    => ()
+                    case Left(error) =>
+                      refused = true
+                      system.log.warn("MQTT observation refused: {}", error.code)
+                    case Right(_) => ()
                   }
+                case _ => ()
               }
           }
       }
