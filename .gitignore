@@ -22,6 +22,7 @@ Thumbs.db
 
 # Local audit notes (Esteban)
 /carnet-de-bord/
+**/arduino_secrets.h
 __pycache__/
 .gradle/
 local.properties
