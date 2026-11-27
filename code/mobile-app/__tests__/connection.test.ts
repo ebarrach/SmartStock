@@ -4,6 +4,25 @@ import {
   saveConnection,
 } from '../src/data/connection';
 import storage from '../src/data/connectionStorage';
+
+test('accepte de nouvelles IPv4 locales sans compilation et refuse HTTP public', () => {
+  for (const url of [
+    'http://10.42.8.91:18119',
+    'http://172.22.5.13:18119',
+    'http://192.168.77.23:18119',
+  ])
+    expect(normalizeServer(url, false)).toBe(url);
+  for (const url of [
+    'http://8.8.8.8:18119',
+    'http://example.com',
+    'http://172.32.0.1',
+    'http://192.169.0.1',
+  ])
+    expect(() => normalizeServer(url, false)).toThrow();
+  expect(normalizeServer('https://example.com', false)).toBe(
+    'https://example.com',
+  );
+});
 test('mémorise serveur Wi-Fi et choix API/Démo sans données de stock', async () => {
   expect(await loadConnection(false)).toBeNull();
   await saveConnection({ mode: 'api', url: 'http://192.168.0.3:18099' });

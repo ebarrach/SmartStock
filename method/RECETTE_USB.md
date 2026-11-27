@@ -11,7 +11,7 @@ cd D:\Projects\Java\SmartStock
 & 'C:\Users\esteb\AppData\Local\Android\Sdk\platform-tools\adb.exe' reverse tcp:18119 tcp:18119
 ```
 
-Ce backend utilise les données existantes sous `code/data`, sans réinitialisation. Le mode sans capteurs est un réglage serveur persistant, accessible depuis Connexion. L’APK autonome livré limite HTTP à l’IP LAN exacte : utiliser son URL Wi-Fi ; le localhost USB nécessite la variante debug ou une exception locale explicitement préparée.
+Ce backend utilise les données existantes sous `code/data`, sans réinitialisation. Le mode sans capteurs est un réglage serveur persistant, accessible depuis Connexion. L’APK autonome autorise aussi loopback127/8 : localhost USB fonctionne avec la redirection explicite, mais l’usage Wi-Fi normal ne nécessite ni câble ni redirection.
 
 ## Recette d’exemple séparée
 

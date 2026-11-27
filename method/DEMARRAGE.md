@@ -170,12 +170,12 @@ Depuis la racine, sélectionner **l’IP privée préférée affichée par le la
 ```powershell
 $env:JAVA_HOME='C:/Users/esteb/.jdks/ms-21.0.12'
 $env:ANDROID_HOME='C:/Users/esteb/AppData/Local/Android/Sdk'
-./code/tools/Build-AndroidRelease.ps1 -Keystore "$env:USERPROFILE/.smartstock-signing/smartstock-release.jks" -Alias smartstock-release -LocalHttpHost 192.168.0.143
+./code/tools/Build-AndroidRelease.ps1 -Keystore "$env:USERPROFILE/.smartstock-signing/smartstock-release.jks" -Alias smartstock-release
 ```
 
 Le script demande les deux mots de passe par saisie masquée, les transmet au processus Gradle sans argument de ligne de commande et les retire ensuite. Ne pas activer de logs Gradle `--debug` ni de transcription du terminal pour la signature.
 
-APK signé : `code/mobile-app/android/app/build/outputs/apk/release/app-release.apk`. Sans `-LocalHttpHost`, la release n’autorise que HTTPS. Avec ce paramètre, HTTP est autorisé pour **cette IPv4 privée exacte uniquement**, sans port dans l’exception Android ; l’URL saisie dans Connexion reste `http://IP:18099`. Aucun certificat HTTPS n’est désactivé. Si cette IP change, réserver l’adresse DHCP, reconstruire l’exception locale, ou passer à HTTPS. La configuration debug pour Metro n’entre pas dans la release.
+APK signé : `code/mobile-app/android/app/build/outputs/apk/release/app-release.apk`. Les IPv4 privées et loopback sont configurables sans reconstruction. Le client refuse HTTP public ; HTTPS conserve ses contrôles habituels. `-LocalHttpHost` n’est plus nécessaire.
 
 ### Backend Windows — deux stockages distincts
 

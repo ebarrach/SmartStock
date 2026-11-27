@@ -38,7 +38,7 @@ cd D:\Projects\Java\SmartStock\code\mobile-app\android
 $env:JAVA_HOME='C:\Users\esteb\.jdks\ms-21.0.12'
 $env:ANDROID_HOME='C:\Users\esteb\AppData\Local\Android\Sdk'
 $env:Path="$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:Path"
-.\gradlew.bat :app:assembleStandalone '-PsmartstockLocalHttpHost=192.168.0.143' --no-daemon --max-workers=2 --console=plain
+.\gradlew.bat :app:assembleStandalone --no-daemon --max-workers=2 --console=plain
 adb devices -l
 adb install -r .\app\build\outputs\apk\standalone\app-standalone.apk
 adb reverse --remove tcp:8082
@@ -51,7 +51,7 @@ Arrêter Metro (Ctrl+C dans son terminal), débrancher l'USB. Dans **Connexion**
 
 Le variant `standalone` embarque le bundle et les ressources, désactive le débogage et utilise la même clé locale que l'installation debug pour la mettre à jour sans effacer ses données. **APK de test local, pas une signature de distribution.** `applicationId` et signature release existante sont conservés. Si la signature de votre installation diffère, arrêter et examiner le conflit ; ne pas désinstaller pour le contourner.
 
-HTTP est limité dans cet APK à l'IP privée exacte fournie à Gradle. Le changement d'IP impose une reconstruction de cette exception ; HTTPS reste validé normalement. L'APK ne donne pas un accès universel aux testeurs. La release signée reste disponible via `code/tools/Build-AndroidRelease.ps1`, avec saisie locale des secrets.
+Les adresses IPv4 locales sont configurables sans reconstruire l’APK. Android autorise HTTP au niveau applicatif ; le client réseau React Native filtre les destinations à l’exécution (RFC1918 : 10/8, 172.16/12, 192.168/16, et loopback127/8), y compris les redirections. HTTP public et noms DNS HTTP sont refusés ; HTTPS conserve la vérification standard des certificats et du nom d’hôte. HTTP reste non chiffré, même sur le LAN. La règle XML seule ne limite pas HTTP aux sous-réseaux privés ; c’est le filtrage applicatif/natif qui le fait pour les appels réseau SmartStock. Une nouvelle bibliothèque native utilisant son propre client devra appliquer la même politique.
 
 ## 4. Paramètres et recette
 

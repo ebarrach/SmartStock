@@ -34,6 +34,7 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    com.facebook.react.modules.network.OkHttpClientProvider.setOkHttpClientFactory(LocalHttpClientFactory())
     loadReactNative(this)
   }
 }

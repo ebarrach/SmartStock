@@ -9,6 +9,20 @@ export function normalizeServer(value: string, web: boolean): string {
       'Indiquez une URL HTTP/HTTPS complète ou /agent sur le navigateur.',
     );
   const parsed = new URL(trimmed);
+  if (!web && parsed.protocol === 'http:') {
+    const octets = parsed.hostname.split('.').map(Number);
+    const local =
+      /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname) &&
+      octets.every(n => Number.isInteger(n) && n >= 0 && n <= 255) &&
+      (octets[0] === 10 ||
+        octets[0] === 127 ||
+        (octets[0] === 192 && octets[1] === 168) ||
+        (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31));
+    if (!local)
+      throw Error(
+        'HTTP réservé aux IPv4 privées locales ou loopback ; utilisez HTTPS pour une autre destination.',
+      );
+  }
   if (
     !['http:', 'https:'].includes(parsed.protocol) ||
     parsed.username ||

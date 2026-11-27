@@ -2,6 +2,59 @@ import React from 'react';
 import renderer, { act } from 'react-test-renderer';
 import { ConnectionProfiles } from '../src/ui/ConnectionProfiles';
 import storage from '../src/data/connectionStorage';
+import { loadConnection } from '../src/data/connection';
+
+test('teste puis sélectionne une adresse privée inédite et conserve son choix', async () => {
+  const address = 'http://10.42.8.91:18119';
+  await storage.setItem(
+    'connection-profiles-v1',
+    JSON.stringify([
+      { id: 'home', name: 'Maison', url: 'http://192.168.0.143:18119' },
+      { id: 'new', name: 'Nouvelle IP', url: address },
+    ]),
+  );
+  await storage.setItem('native-scanner-pending-v1', 'null');
+  const original = globalThis.fetch;
+  const transport = jest.fn(
+    async () =>
+      ({ ok: true, json: async () => ({ status: 'ok' }) } as Response),
+  );
+  globalThis.fetch = transport;
+  const selected = jest.fn();
+  let tree: renderer.ReactTestRenderer;
+  try {
+    await act(async () => {
+      tree = renderer.create(
+        <ConnectionProfiles
+          activeUrl="http://192.168.0.143:18119"
+          select={selected}
+        />,
+      );
+    });
+    const press = async (label: string) =>
+      act(async () => {
+        await tree!.root
+          .findAll(
+            n =>
+              n.props.accessibilityLabel === label &&
+              typeof n.props.onPress === 'function',
+          )[0]
+          .props.onPress();
+      });
+    await press('Tester Nouvelle IP');
+    expect(transport).toHaveBeenCalledWith(
+      address + '/api/v1/health',
+      expect.anything(),
+    );
+    await press('Sélectionner Nouvelle IP');
+    expect(selected).toHaveBeenCalledWith(address);
+    expect((await loadConnection(false))?.url).toBe(address);
+    expect(await storage.getItem('connection-profiles-v1')).toContain('Maison');
+  } finally {
+    globalThis.fetch = original;
+    await act(async () => tree!.unmount());
+  }
+});
 
 test('un test réseau échoué conserve les profils sans sélection automatique', async () => {
   const saved = [

@@ -24,14 +24,14 @@ try {
     $env:SMARTSTOCK_RELEASE_KEY_PASSWORD=Plain $key
     $tasks=switch($Target){'Apk'{@(':app:assembleRelease')};'Bundle'{@(':app:bundleRelease')};'Both'{@(':app:assembleRelease',':app:bundleRelease')}}
     $argsList=@($tasks)+@('--no-daemon','--max-workers=2','--console=plain')
-    if($LocalHttpHost){$argsList+="-PsmartstockLocalHttpHost=$LocalHttpHost"}
+    if($LocalHttpHost){Write-Host 'LocalHttpHost est obsolete : IPv4 privees configurables dans les profils, sans reconstruction.'}
     Push-Location $android
     try {& ./gradlew.bat @argsList; if($LASTEXITCODE -ne 0){throw 'Compilation release echouee.'}}
     finally {Pop-Location}
     if($Target -ne 'Bundle'){Write-Host "APK signe : $(Join-Path $android 'app/build/outputs/apk/release/app-release.apk')"}
     if($Target -ne 'Apk'){
         Write-Host "AAB signe : $(Join-Path $android 'app/build/outputs/bundle/release/app-release.aab')"
-        if($LocalHttpHost){Write-Host "Attention : HTTP limite a $LocalHttpHost, utilisable uniquement sur ce reseau prive. Pas un acces universel pour les testeurs."}
+        Write-Host 'HTTP des appels SmartStock limite aux IPv4 privees/loopback ; HTTPS conserve la validation standard.'
     }
 } finally {
     foreach($name in $names){[Environment]::SetEnvironmentVariable($name,$previous[$name],'Process')}

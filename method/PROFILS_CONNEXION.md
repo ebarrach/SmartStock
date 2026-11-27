@@ -1,4 +1,4 @@
-﻿# Connexions Maison et hotspot Android
+# Connexions Maison et hotspot Android
 
 Les profils sont des préférences locales. Ils ne modifient ni stock ni paramètres serveur. Maison reprend l’adresse enregistrée lors de la migration. Ajouter, modifier, tester puis sélectionner un autre profil dans Connexion. Une modification ne change pas silencieusement l’adresse active ; sélectionner explicitement pour l’appliquer. Pour supprimer le profil actif, sélectionner d’abord un autre profil.
 
@@ -36,11 +36,11 @@ La règle existante est limitée à Java, TCP18119, LocalSubnet, profil Privé. 
 
 ## APK autonome et adresse DHCP
 
-HTTP est limité à192.168.0.143 et10.100.76.76 dans cet APK. Si le hotspot change l’IP du PC, modifier le profil sans supprimer Maison, puis reconstruire l’exception Android avec la liste actualisée. Aucun certificat HTTPS n’est désactivé.
+Les adresses IPv4 locales sont configurables sans reconstruire l’APK. Android autorise HTTP au niveau applicatif ; le client réseau React Native filtre les destinations à l’exécution (RFC1918 : 10/8, 172.16/12, 192.168/16, et loopback127/8), y compris les redirections. HTTP public et noms DNS HTTP sont refusés ; HTTPS conserve la vérification standard des certificats et du nom d’hôte. HTTP reste non chiffré, même sur le LAN. La règle XML seule ne limite pas HTTP aux sous-réseaux privés ; c’est le filtrage applicatif/natif qui le fait pour les appels réseau SmartStock. Une nouvelle bibliothèque native utilisant son propre client devra appliquer la même politique.
 
 ```powershell
 # Depuis code/mobile-app/android, JDK21 et SDK configurés :
-./gradlew.bat :app:assembleStandalone '-PsmartstockLocalHttpHost=192.168.0.143,10.100.76.76' --no-daemon --max-workers=2
+./gradlew.bat :app:assembleStandalone --no-daemon --max-workers=2
 adb install -r app/build/outputs/apk/standalone/app-standalone.apk
 ```
 
