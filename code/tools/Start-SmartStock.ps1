@@ -5,7 +5,9 @@ param(
     [string]$JarPath,
     [string]$CatalogPath,
     [string]$Java='java',
-    [string]$BindAddress='0.0.0.0'
+    [string]$BindAddress='0.0.0.0',
+    [string]$InterfaceAlias,
+    [string]$Address
 )
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -48,12 +50,7 @@ try {
     Write-Host 'Transaction : transaction.json (pendant ecriture/reprise), commit.json, store.lock'
     Write-Host "Catalogue de parametres : $env:SMARTSTOCK_CATALOG (aucune reinjection automatique)"
     Write-Host "Ecoute : $BindAddress`:$Port | PC : http://127.0.0.1:$Port/api/v1/health"
-    $physical=@(Get-NetAdapter -Physical | Where-Object {$_.Status -eq 'Up'} | Select-Object -ExpandProperty ifIndex)
-    if($BindAddress -ne '127.0.0.1'){
-        Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
-            $_.IPAddress -match '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)' -and $_.AddressState -eq 'Preferred' -and $_.InterfaceIndex -in $physical
-        } | ForEach-Object {Write-Host "Telephone ($($_.InterfaceAlias), meme LAN) : http://$($_.IPAddress):$Port"}
-    }
+    & (Join-Path $PSScriptRoot 'Get-ConnectionCandidates.ps1') -Port $Port -InterfaceAlias $InterfaceAlias -Address $Address | Format-Table -AutoSize
     Write-Host 'Garder ce terminal ouvert. Ctrl+C pour arreter. Aucune fixture rechargee au redemarrage.'
     if($Mode -eq 'Demo'){& $Java -jar $jar --demo}else{& $Java -jar $jar}
     if($LASTEXITCODE -ne 0){throw "Agent termine avec code $LASTEXITCODE"}

@@ -3,9 +3,11 @@ param(
     [ValidateRange(1024,65535)][int]$Port=18119,
     [string]$DataDirectory='code/data',
     [string]$JarPath='code/smartstock-agent/target/scala-2.13/smartstock-agent.jar',
-    [string]$Java='java'
+    [string]$Java='java',
+    [string]$InterfaceAlias,
+    [string]$Address
 )
 $ErrorActionPreference='Stop'
 $Host.UI.RawUI.WindowTitle="SmartStock - Serveur PC $Port - LAISSER OUVERT"
 & (Join-Path $PSScriptRoot 'Start-SmartStock.ps1') -Mode $Mode -Port $Port `
-    -DataDirectory $DataDirectory -JarPath $JarPath -Java $Java
+    -DataDirectory $DataDirectory -JarPath $JarPath -Java $Java -InterfaceAlias $InterfaceAlias -Address $Address

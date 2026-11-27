@@ -28,6 +28,8 @@ import {
 } from './ui/InventoryScreens';
 import { layoutForWidth, theme } from './ui/theme';
 import logo from './assets/logo';
+import { ConnectionProfiles } from './ui/ConnectionProfiles';
+import connectionStorage from './data/connectionStorage';
 import { ServerSettingsPanel } from './ui/ServerSettingsPanel';
 import { ScannerScreen } from './scanner/ScannerScreen';
 import { AnalysisScreen, GradientSurface } from './ui/AnalysisScreen';
@@ -105,6 +107,14 @@ export default function SmartStockApp({
   const connect = async () => {
     try {
       const address = normalizeServer(url, Platform.OS === 'web');
+      const pending = JSON.parse(
+        (await connectionStorage.getItem('native-scanner-pending-v1')) ??
+          'null',
+      );
+      if (pending && pending.baseUrl !== address)
+        throw Error(
+          `Opération en attente sur ${pending.baseUrl} : la résoudre dans Scanner avant de changer de serveur.`,
+        );
       await saveConnection({ mode: 'api', url: address });
       setUrl(address);
       setLastServer(address);
@@ -332,6 +342,16 @@ export default function SmartStockApp({
                       />
                     )}
                   </>
+                )}
+                {screen === 'Connexion' && (
+                  <ConnectionProfiles
+                    activeUrl={lastServer}
+                    select={address => {
+                      setUrl(address);
+                      setLastServer(address);
+                      setOverride(new ApiStockRepository(address));
+                    }}
+                  />
                 )}
                 {screen === 'Connexion' && !demo && (
                   <ServerSettingsPanel

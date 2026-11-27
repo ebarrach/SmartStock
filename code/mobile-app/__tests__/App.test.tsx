@@ -110,9 +110,12 @@ test('restaure une connexion API hors ligne après remontage sans afficher la D�
     expect(text()).not.toContain('Données simulées');
     expect(text()).toContain('Serveur inaccessible');
     await press('Connexion et paramètres');
-    expect(tree.root.findByType(TextInput).props.value).toBe(
-      'http://192.168.0.3:18099',
-    );
+    expect(
+      tree.root
+        .findAllByType(TextInput)
+        .find(n => n.props.accessibilityLabel.startsWith('Adresse'))!.props
+        .value,
+    ).toBe('http://192.168.0.3:18099');
   } finally {
     globalThis.fetch = oldFetch;
   }
@@ -174,7 +177,9 @@ test('erreur API et reprise sans bascule fictive', async () => {
 });
 test('formulaire de connexion refuse une adresse invalide', async () => {
   await press('Connexion et paramètres');
-  const input = tree.root.findByType(TextInput);
+  const input = tree.root
+    .findAllByType(TextInput)
+    .find(n => n.props.accessibilityLabel.startsWith('Adresse'))!;
   await act(async () => input.props.onChangeText('invalid'));
   await press('Connecter l’API');
   expect(
